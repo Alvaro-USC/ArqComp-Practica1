@@ -24,12 +24,17 @@ Val_L1=$((S1 / 2))         # 0.5 * S1
 Val_L2=$((S1 * 3 / 2))     # 1.5 * S1
 Val_L3=$((S2 / 2))         # 0.5 * S2
 Val_L4=$((S2 * 3 / 4))     # 0.75 * S2
-Val_L5=$((S2 * 2))         # 2.0 * S2 (RAM o L3)
+Val_L5=$((S2 * 2))         # 2.0 * S2
 Val_L6=$((S2 * 4))         # 4.0 * S2
-Val_L7=$((S2 * 8))         # 8.0 * S2
+Val_L7=$((S2 * 8))         # 8.0 * S2 (~8 MB en tu Ryzen, sigue siendo L3)
 
-# Listas de iteración
-L_VALS="$Val_L1 $Val_L2 $Val_L3 $Val_L4 $Val_L5 $Val_L6 $Val_L7"
+# --- NUEVOS TAMAÑOS PARA RYZEN 9 ---
+# Tu L3 es gigante (64MB+). Necesitamos ir mucho más lejos.
+Val_L8=$((S2 * 64))        # ~64 MB (Frontera de la L3)
+Val_L9=$((S2 * 256))       # ~256 MB (RAM Profunda - Aquí verás el salto >100 ciclos)
+
+# Listas de iteración (AÑADE LAS NUEVAS VARIABLES AQUÍ AL FINAL)
+L_VALS="$Val_L1 $Val_L2 $Val_L3 $Val_L4 $Val_L5 $Val_L6 $Val_L7 $Val_L8 $Val_L9"
 D_VALS="1 8 16 64 128"
 
 echo "   > Valores de L a probar: $L_VALS"
