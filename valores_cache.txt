@@ -1,0 +1,19 @@
+Cache L3: 48 MB
+Cache L2: 32 MB
+Cache L1: 2048 KB
+
+Nucle L2: 1 MB / Core
+Nucle L3: 1.5 MB / Core
+
+Cache per CPU Package:
+L1 Instruction Cache: 32 x 48 KB
+L1 Data Cache: 32 x 32 KB
+L2 Cache: 32 x 1280 KB
+L3 Cache: 48 MB
+
+
+2x Intel Xeon Platinum 8352Y
+Cache size 80 MiB L2 + 96 MiB L3
+
+Comando:
+getconf -a | grep CACHE
