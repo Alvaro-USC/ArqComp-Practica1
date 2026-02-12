@@ -1,2 +1,5 @@
 resultados/
 resultados_local/
+*.png
+*.txt
+*.csv
