@@ -77,8 +77,10 @@ if not dfs:
 
 
 # ── Parámetros de arquitectura ────────────────────────────────────────────────
-S1 = 768    # líneas L1d (48 KB / 64 B)
-S2 = 20480  # líneas L2  (1.25 MB / 64 B)
+# ── Parámetros de arquitectura ────────────────────────────────────────────────
+S1 = 768      # líneas L1d (48 KB / 64 B)
+S2 = 20480    # líneas L2  (1.25 MB / 64 B)
+S3 = 786432   # líneas L3  (48 MB / 64 B)   ← NUEVO
 
 COLORES = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd"]
 MARKERS = ["o", "s", "^", "D", "v"]
@@ -107,6 +109,8 @@ for ax, nombre in zip(axes, experimentos):
     ax.axvline(S2, color="green", linestyle="--", alpha=0.5)
     ax.text(S1 * 1.05, ax.get_ylim()[1] * 0.95, "L1", color="red",   fontsize=9)
     ax.text(S2 * 1.05, ax.get_ylim()[1] * 0.95, "L2", color="green", fontsize=9)
+    ax.axvline(S3, color="orange", linestyle="--", alpha=0.5)
+    ax.text(S3 * 1.05, ax.get_ylim()[1] * 0.95, "L3", color="orange", fontsize=9)
 
     ax.set_xscale("log")
     ax.set_title(nombre, fontsize=11)

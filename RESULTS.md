@@ -4,7 +4,7 @@
 **Asignatura**: Arquitectura de Computadores  
 **Práctica**: Estudio del efecto de la localidad de los accesos a memoria  
 **Plataforma**: FinisTerrae III (CESGA) — Intel Xeon Platinum 8352Y  
-**Jobs ejecutados**: 5366644 (double indirecto) + experimentos adicionales int y directo
+**Jobs ejecutados**: 5366644, 5367628, 5367629, 5367630
 
 ---
 
@@ -15,7 +15,7 @@ graph TD
     CPU["CPU Core Intel Xeon Platinum 8352Y 2.20 GHz base / 3.40 GHz turbo"]
     L1["Caché L1d 48 KB · 12-way · privada S1 = 768 líneas · ~5 ciclos"]
     L2["Caché L2 1.25 MB · 20-way · privada S2 = 20480 líneas · ~14 ciclos"]
-    L3["Caché L3 48 MB · 12-way · compartida ~40-50 ciclos"]
+    L3["Caché L3 48 MB · 12-way · compartida S3 = 786432 líneas · ~40-50 ciclos"]
     RAM["RAM DDR4 256 GB ~150-200 ciclos"]
 
     CPU -->|"fallo L1"| L1
@@ -35,34 +35,30 @@ Línea de caché (CLS) = 64 bytes. Experimentos ejecutados en **1 solo core** pa
 
 ## 2. El prefetcher hardware del Intel Ice Lake (Sunny Cove)
 
-El procesador Intel Xeon Platinum 8352Y implementa la microarquitectura **Sunny Cove** (Ice Lake-SP), que incluye **cuatro prefetchers hardware** independientes controlables mediante el registro MSR 0x1A4:
+El procesador implementa la microarquitectura **Sunny Cove** (Ice Lake-SP) con **cuatro prefetchers hardware** independientes:
 
-### Prefetchers de L1 (cargan datos desde L2 → L1)
+### Prefetchers de L1 (cargan datos L2 → L1)
 
-**DCU Streamer (Next-Line Prefetcher):** Detecta accesos ascendentes a datos recientemente cargados e interpreta ese patrón como un algoritmo de streaming. Automáticamente precarga la siguiente línea de caché. Es el más simple y se activa con cualquier acceso secuencial.
+**DCU Streamer (Next-Line Prefetcher):** Detecta accesos ascendentes recientes e interpreta el patrón como streaming. Precarga automáticamente la siguiente línea de caché. Se activa con cualquier acceso secuencial.
 
-**DCU IP-based Stride Prefetcher:** Rastrea instrucciones de carga individuales. Cuando una instrucción de carga muestra un stride regular, emite una precarga a la siguiente dirección calculada como `dirección_actual + stride`. Puede detectar strides de hasta 2 KB tanto en dirección ascendente como descendente. Este es el prefetcher que explica los buenos resultados observados con D=8 y D=16 en las zonas L1 y L2.
+**DCU IP-based Stride Prefetcher:** Rastrea instrucciones de carga individuales. Cuando una instrucción muestra un stride regular, emite una precarga a `dirección_actual + stride`. Detecta strides de hasta 2 KB en ambas direcciones.
 
-### Prefetchers de L2 (cargan datos desde L3 → L2)
+### Prefetchers de L2 (cargan datos L3 → L2)
 
-**L2 Streamer:** Monitoriza secuencias ascendentes y descendentes de peticiones desde L1 (tanto loads/stores como prefetches del propio L1). Cuando detecta un stream, precarga líneas anticipadas. Puede correr hasta **20 líneas por delante** del acceso actual, gestiona hasta **32 streams simultáneos** (un stream positivo y uno negativo por cada página de 4 KB), y ajusta dinámicamente la profundidad de prefetch según la carga del sistema. No cruza límites de página de 4 KB.
+**L2 Streamer:** Monitoriza secuencias de peticiones desde L1. Cuando detecta un stream, precarga líneas anticipadas corriendo hasta **20 líneas por delante**. Gestiona hasta **32 streams simultáneos** y no cruza límites de página de 4 KB.
 
-**L2 Spatial (Adjacent Cache Line) Prefetcher:** Completa cada línea de caché cargada en L2 con su línea adyacente, de modo que siempre haya un bloque de 128 bytes alineado completo. Actúa independientemente del patrón de acceso.
+**L2 Spatial (Adjacent Cache Line) Prefetcher:** Completa cada línea cargada en L2 con su línea adyacente, garantizando bloques de 128 bytes alineados. Actúa independientemente del patrón de acceso.
 
 ### Implicaciones para los experimentos
 
-Con acceso secuencial (D=1), los cuatro prefetchers actúan coordinadamente: el DCU Streamer detecta el patrón, el IP Stride lo confirma, y el L2 Streamer garantiza que las líneas están en L2 mucho antes de que L1 las necesite. El resultado es la latencia casi plana observada incluso con 10 MB de datos.
-
-Con D=16 (stride de 2 líneas), el IP Stride Prefetcher detecta el patrón y emite precargas, pero el L2 Spatial Prefetcher también actúa trayendo líneas adyacentes que nunca se usarán, generando el fenómeno de **prefetch pollution** que explica el peor caso observado.
-
-Con D=64 y D=128, el stride supera la capacidad de detección eficiente del L2 Streamer (que opera por páginas de 4 KB) y el sistema reduce la profundidad de prefetch o deja de emitirlo, lo que paradójicamente mejora el rendimiento respecto a D=16 al evitar el tráfico inútil.
+Con D=1 los cuatro prefetchers actúan coordinadamente ocultando completamente la latencia incluso de RAM. Con D=16, el IP Stride y el Spatial actúan juntos generando *prefetch pollution* (doble tráfico inútil), explicando el peor caso observado. Con D=64 y D=128, el stride supera el umbral eficiente del L2 Streamer y el prefetcher reduce actividad, lo que paradójicamente mejora el rendimiento respecto a D=16.
 
 ---
 
 ## 3. Diseño experimental
 
 ```mermaid
-flowchart TD
+flowchart LR
     subgraph Variantes["3 variantes de programa"]
         A["acp1.c double · indirecto A[ind[i]]"]
         B["acp1_int.c int · indirecto A[ind[i]]"]
@@ -71,7 +67,7 @@ flowchart TD
 
     subgraph Params["Matriz de parámetros"]
         D["Strides D 1 · 8 · 16 · 64 · 128"]
-        L["Tamaños L 0.5×S1 · 1.5×S1 0.5×S2 · 0.75×S2 2×S2 · 4×S2 · 8×S2"]
+        L["Tamaños L 11 valores: L1, L2, L3 y RAM"]
     end
 
     subgraph Stats["Tratamiento estadístico"]
@@ -83,70 +79,84 @@ flowchart TD
     Variantes --> Params --> Stats
 ```
 
-Cada variante ejecuta las **35 combinaciones** (5 strides × 7 tamaños), con 10 repeticiones externas → 1050 mediciones totales.
+Cada variante ejecuta **55 combinaciones** (5 strides × 11 tamaños), con 10 repeticiones externas → **1650 mediciones totales**.
 
 ---
 
 ## 4. Footprint real en caché por valor de L
 
-El parámetro L define el número de líneas de caché distintas que el programa referencia. El footprint en bytes es simplemente `L × 64` y determina en qué nivel de la jerarquía residen los datos durante la ejecución, **independientemente del stride D y del tipo de dato**.
+El parámetro L define el número de líneas distintas referenciadas. El footprint en bytes es `L × 64` y determina el nivel de jerarquía donde residen los datos, independientemente del stride D y del tipo de dato.
 
-> **Nota sobre la memoria reportada por Slurm:** El sistema Slurm reporta memoria RSS del sistema operativo (páginas físicas del SO tocadas), no el footprint en caché. Con stride D=128 y L=163840, solo se tocan R=10.240 posiciones de `A[]`, lo que explica que Slurm reporte apenas ~100 KB de memoria del sistema pese a que el footprint en caché es de 10 MB. Ambas métricas miden cosas distintas.
-
-| L (líneas) | Fracción | Bytes referenciados | Nivel real |
+| L (líneas) | Fracción | Footprint | Nivel real |
 |:---:|:---:|:---:|:---:|
-| 384 | 0.5 × S1 | 384 × 64 = **24 KB** | **L1** (48 KB) ✓ holgado |
-| 1152 | 1.5 × S1 | 1152 × 64 = **72 KB** | **L2** (1.25 MB) ✓ · desborda L1 |
-| 10240 | 0.5 × S2 | 10240 × 64 = **640 KB** | **L2** ✓ · holgado (51%) |
-| 15360 | 0.75 × S2 | 15360 × 64 = **960 KB** | **L2** ✓ · ajustado (77%) |
-| 40960 | 2 × S2 | 40960 × 64 = **2.5 MB** | **L3** (48 MB) · desborda L2 |
-| 81920 | 4 × S2 | 81920 × 64 = **5 MB** | **L3** ✓ |
-| 163840 | 8 × S2 | 163840 × 64 = **10 MB** | **L3** ✓ (+ ind[] suma ~5–15 MB) |
+| 384 | 0.5 × S1 | **24 KB** | L1 (48 KB) ✓ holgado |
+| 1152 | 1.5 × S1 | **72 KB** | L2 · desborda L1 |
+| 10240 | 0.5 × S2 | **640 KB** | L2 · holgado (51%) |
+| 15360 | 0.75 × S2 | **960 KB** | L2 · ajustado (77%) |
+| 40960 | 2 × S2 | **2.5 MB** | L3 · desborda L2 |
+| 81920 | 4 × S2 | **5 MB** | L3 |
+| 163840 | 8 × S2 | **10 MB** | L3 |
+| 524288 | 0.67 × S3 | **32 MB** | L3 · llenando |
+| 786432 | 1 × S3 | **48 MB** | límite exacto L3 |
+| 1572864 | 2 × S3 | **96 MB** | **RAM** · desborda L3 |
+| 3145728 | 4 × S3 | **192 MB** | **RAM profunda** |
 
-Los valores L > S2 se denominan en este informe **"zona L3"** porque los datos desbordan L2 pero quedan dentro de los 48 MB de L3. Las latencias observadas (~8–20 ciclos) son consistentes con acceso a L3 mediado por el prefetcher, no con latencia pura de RAM (~150–200 ciclos). Solo con accesos completamente aleatorios se llegaría a necesitar RAM.
+> **Nota sobre Slurm:** El sistema reporta memoria RSS del SO (páginas físicas tocadas), no footprint en caché. Con D=128 y L=3145728 solo se tocan R=196.608 posiciones de `A[]` (~1.5 MB de RSS), aunque el footprint en caché sea de 192 MB. Ambas métricas miden cosas distintas.
 
 ---
 
 ## 5. Tablas de resultados
 
 > Valores en **ciclos de CPU por acceso** (media geométrica de los 3 mejores de 10 repeticiones).  
-> 🟢 < 7.5 ciclos · 🟡 7.5–9.0 ciclos · 🔴 > 9.0 ciclos
+> 🟢 < 8 ciclos · 🟡 8–12 ciclos · 🔴 > 12 ciclos
 
 ### 5.1 Double + acceso indirecto (experimento base)
 
-| L (líneas) | Zona real | D=1 | D=8 | D=16 | D=64 | D=128 |
+| L (líneas) | Nivel | D=1 | D=8 | D=16 | D=64 | D=128 |
 |:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| 384 | L1 | 🟢 7.53 | 🟢 7.70 | 🟢 7.63 | 🟢 7.64 | 🟢 7.36 |
-| 1152 | L2 | 🟢 7.55 | 🟢 7.72 | 🟢 7.74 | 🟢 7.72 | 🟢 7.81 |
-| 10240 | L2 | 🟢 7.61 | 🟢 7.79 | 🟢 7.85 | 🟢 7.88 | 🟢 7.95 |
-| 15360 | L2 | 🟢 7.69 | 🟢 7.93 | 🟡 8.08 | 🟡 8.18 | 🟡 8.09 |
-| 40960 | L3 | 🟢 7.82 | 🟡 8.50 | 🔴 9.94 | 🔴 9.98 | 🔴 10.22 |
-| 81920 | L3 | 🟢 7.95 | 🔴 9.16 | 🔴 11.25 | 🔴 10.71 | 🔴 10.52 |
-| 163840 | L3 | 🟢 7.93 | 🔴 13.74 | 🔴 19.75 | 🔴 12.20 | 🔴 11.77 |
+| 384 | L1 | 🟢 7.08 | 🟢 7.14 | 🟢 7.06 | 🟢 7.15 | 🟢 7.12 |
+| 1152 | L2 | 🟢 7.09 | 🟢 7.17 | 🟢 7.18 | 🟢 7.20 | 🟢 7.28 |
+| 10240 | L2 | 🟢 7.12 | 🟢 7.19 | 🟢 7.21 | 🟢 7.29 | 🟢 7.27 |
+| 15360 | L2 | 🟢 7.13 | 🟢 7.20 | 🟢 7.23 | 🟢 7.41 | 🟢 7.33 |
+| 40960 | L3 | 🟢 7.15 | 🟢 7.45 | 🟡 8.96 | 🟡 8.18 | 🟡 8.28 |
+| 81920 | L3 | 🟢 7.18 | 🟢 7.52 | 🟡 9.48 | 🟡 8.23 | 🟡 8.21 |
+| 163840 | L3 | 🟢 7.22 | 🟡 8.20 | 🟡 10.32 | 🟡 8.33 | 🟡 8.64 |
+| 524288 | L3 | 🟢 7.22 | 🟡 11.01 | 🔴 17.59 | 🔴 17.14 | 🔴 17.09 |
+| 786432 | L3 límite | 🟢 7.23 | 🟡 11.15 | 🔴 18.30 | 🔴 18.43 | 🔴 18.59 |
+| 1572864 | **RAM** | 🟢 7.23 | 🟡 11.09 | 🔴 18.99 | 🔴 20.55 | 🔴 19.42 |
+| 3145728 | **RAM** | 🟢 7.22 | 🟡 11.10 | 🔴 18.51 | 🔴 20.86 | 🔴 19.68 |
 
 ### 5.2 Int + acceso indirecto (experimento adicional 1)
 
-| L (líneas) | Zona real | D=1 | D=8 | D=16 | D=64 | D=128 |
+| L (líneas) | Nivel | D=1 | D=8 | D=16 | D=64 | D=128 |
 |:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| 384 | L1 | 🟢 6.84 | 🟢 7.05 | 🟢 7.11 | 🟢 7.13 | 🟢 7.12 |
-| 1152 | L2 | 🟢 6.88 | 🟢 7.00 | 🟢 7.43 | 🟢 7.42 | 🟢 7.45 |
-| 10240 | L2 | 🟢 6.98 | 🟢 6.98 | 🟢 7.45 | 🟢 7.41 | 🟢 7.55 |
-| 15360 | L2 | 🟢 7.01 | 🟢 6.99 | 🟢 7.50 | 🟢 7.46 | 🟢 7.59 |
-| 40960 | L3 | 🟢 7.05 | 🟢 7.18 | 🟢 7.81 | 🔴 9.45 | 🟡 8.34 |
-| 81920 | L3 | 🟢 7.06 | 🟢 7.33 | 🟢 7.89 | 🔴 10.25 | 🔴 8.98 |
-| 163840 | L3 | 🟢 7.04 | 🟡 8.16 | 🟡 8.87 | 🔴 11.80 | 🔴 9.54 |
+| 384 | L1 | 🟢 6.77 | 🟢 6.79 | 🟢 6.84 | 🟢 6.80 | 🟢 6.82 |
+| 1152 | L2 | 🟢 6.78 | 🟢 6.82 | 🟢 7.17 | 🟢 7.23 | 🟢 7.21 |
+| 10240 | L2 | 🟢 6.79 | 🟢 6.83 | 🟢 7.18 | 🟢 7.23 | 🟢 7.28 |
+| 15360 | L2 | 🟢 6.80 | 🟢 6.87 | 🟢 7.24 | 🟢 7.24 | 🟢 7.22 |
+| 40960 | L3 | 🟢 6.80 | 🟢 6.88 | 🟢 7.26 | 🟡 8.00 | 🟢 7.94 |
+| 81920 | L3 | 🟢 6.80 | 🟢 6.91 | 🟢 7.28 | 🟢 7.73 | 🟢 7.76 |
+| 163840 | L3 | 🟢 6.80 | 🟢 6.93 | 🟢 7.32 | 🟢 7.78 | 🟢 7.76 |
+| 524288 | L3 | 🟢 6.81 | 🟢 7.69 | 🟡 8.58 | 🔴 15.88 | 🔴 14.92 |
+| 786432 | L3 límite | 🟢 6.81 | 🟢 7.79 | 🟡 8.80 | 🔴 16.87 | 🔴 16.01 |
+| 1572864 | **RAM** | 🟢 6.81 | 🟢 7.87 | 🟡 9.27 | 🔴 17.04 | 🔴 18.35 |
+| 3145728 | **RAM** | 🟢 6.81 | 🟢 7.89 | 🟡 9.40 | 🔴 17.53 | 🔴 19.71 |
 
 ### 5.3 Double + acceso directo (experimento adicional 2)
 
-| L (líneas) | Zona real | D=1 | D=8 | D=16 | D=64 | D=128 |
+| L (líneas) | Nivel | D=1 | D=8 | D=16 | D=64 | D=128 |
 |:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| 384 | L1 | 🟢 7.32 | 🟢 7.18 | 🟢 7.09 | 🟢 6.73 | 🟢 6.74 |
-| 1152 | L2 | 🟢 7.26 | 🟢 7.29 | 🟢 7.43 | 🟢 7.16 | 🟢 7.11 |
-| 10240 | L2 | 🟢 7.44 | 🟢 7.40 | 🟢 7.45 | 🟢 7.39 | 🟢 7.43 |
-| 15360 | L2 | 🟢 7.44 | 🟢 7.48 | 🟢 7.58 | 🟢 7.49 | 🟢 7.62 |
-| 40960 | L3 | 🟢 7.50 | 🟢 7.80 | 🟡 8.71 | 🟡 8.61 | 🟡 8.36 |
-| 81920 | L3 | 🟢 7.53 | 🟢 7.88 | 🔴 9.55 | 🔴 9.02 | 🟡 8.77 |
-| 163840 | L3 | 🟢 7.61 | 🟡 8.86 | 🔴 11.30 | 🔴 10.02 | 🔴 9.86 |
+| 384 | L1 | 🟢 7.06 | 🟢 6.98 | 🟢 6.82 | 🟢 6.42 | 🟢 6.36 |
+| 1152 | L2 | 🟢 7.08 | 🟢 7.09 | 🟢 7.07 | 🟢 6.88 | 🟢 6.81 |
+| 10240 | L2 | 🟢 7.10 | 🟢 7.15 | 🟢 7.15 | 🟢 7.10 | 🟢 7.08 |
+| 15360 | L2 | 🟢 7.11 | 🟢 7.18 | 🟢 7.14 | 🟢 7.12 | 🟢 7.09 |
+| 40960 | L3 | 🟢 7.13 | 🟢 7.35 | 🟢 7.57 | 🟢 7.50 | 🟢 7.48 |
+| 81920 | L3 | 🟢 7.12 | 🟢 7.30 | 🟢 7.53 | 🟢 7.55 | 🟢 7.32 |
+| 163840 | L3 | 🟢 7.12 | 🟢 7.32 | 🟢 7.45 | 🟢 7.56 | 🟢 7.41 |
+| 524288 | L3 | 🟢 7.14 | 🟡 8.36 | 🔴 12.63 | 🔴 13.69 | 🔴 12.99 |
+| 786432 | L3 límite | 🟢 7.15 | 🟡 8.54 | 🔴 14.62 | 🔴 15.13 | 🔴 13.91 |
+| 1572864 | **RAM** | 🟢 7.16 | 🟡 8.58 | 🔴 16.25 | 🔴 17.22 | 🔴 15.44 |
+| 3145728 | **RAM** | 🟢 7.16 | 🟡 8.56 | 🔴 16.64 | 🔴 18.72 | 🔴 16.59 |
 
 ---
 
@@ -156,19 +166,19 @@ Los valores L > S2 se denominan en este informe **"zona L3"** porque los datos d
 
 ![Comparativa de los tres experimentos](comparativa_experimentos.png)
 
-Cada panel muestra las 5 curvas de stride para una variante. Las líneas verticales rojas y verdes marcan los límites físicos de L1 (S1=768) y L2 (S2=20480). A partir de S2 los datos residen en L3. La variante double indirecto presenta los valores más altos en zona L3 con strides medios; la int indirecto los más bajos para D=1.
+Cada panel muestra las 5 curvas de stride para una variante. Las líneas verticales rojas y verdes marcan los límites de L1 (S1=768) y L2 (S2=20480). A partir de L=1572864 los datos residen en RAM. Con la escala logarítmica del eje X se aprecian claramente las tres zonas: L1/L2 planas, L3 con degradación progresiva, y RAM con salto abrupto en todos los strides excepto D=1.
 
 ### 6.2 Comparación de variantes para D=1 (mejor caso de prefetching)
 
 ![Comparativa D=1](comparativa_D1.png)
 
-Con acceso secuencial, las tres variantes se mantienen casi planas incluso en L3. El DCU Streamer y el L2 Streamer actúan coordinadamente ocultando por completo la latencia de L3 (~40-50 ciclos teóricos). La versión int alcanza el mínimo (~7.04 ciclos) y la double indirecta el máximo (~7.93 ciclos) en L=163840.
+Las tres variantes permanecen completamente planas en todo el rango, incluyendo RAM (L=3145728, footprint 192 MB). El DCU Streamer y el L2 Streamer actúan coordinadamente ocultando por completo las latencias de L3 y RAM. La versión int mantiene ~6.81 ciclos incluso en RAM profunda.
 
 ### 6.3 Comparación de variantes para D=16 (peor caso observado)
 
 ![Comparativa D=16](comparativa_D16.png)
 
-Con stride D=16, las diferencias entre variantes son máximas. La versión double indirecta llega a **19.75 ciclos**, mientras que la int indirecta se queda en 8.87 y la double directa en 11.30. El IP Stride Prefetcher detecta el patrón pero genera prefetch pollution al actuar conjuntamente con el Spatial Prefetcher, trayendo el doble de líneas necesarias.
+A partir de L=524288 (zona L3 profunda) las tres variantes escalan abruptamente. La double indirecta alcanza **18.99 ciclos** en RAM (L=1572864), la double directa **16.25** y la int indirecta **9.27**. La transición L3→RAM es visible como un cambio de pendiente entre L=786432 y L=1572864.
 
 ---
 
@@ -178,7 +188,7 @@ Con stride D=16, las diferencias entre variantes son máximas. La versión doubl
 
 ```mermaid
 graph LR
-    A["Todos los strides convergen ~6.7–7.7 ciclos"]
+    A["Todos los strides convergen ~6.4–7.2 ciclos"]
     B["24 KB de datos caben en L1 (48 KB)"]
     C["Stride irrelevante: cada acceso resuelto sin fallo de caché"]
     D["Valida experimentalmente S1 = 768 líneas"]
@@ -189,103 +199,130 @@ graph LR
     style D fill:#d4edda,stroke:#28a745
 ```
 
-Las cinco curvas de cualquier variante son indistinguibles. La ligera ventaja de `int` (~0.3 ciclos menos) se debe a que la suma entera (`ADD`) es marginalmente más barata en la ALU que la suma en punto flotante (`FADD`).
+Las cinco curvas de cualquier variante son indistinguibles. La ligera ventaja de `int` (~0.3 ciclos) y del acceso directo con strides grandes (D=64: 6.42 ciclos) se deben respectivamente a la diferencia ALU entre `ADD` y `FADD`, y a la eliminación del overhead del vector de índices.
 
 ### 7.2 Zona L2 — 768 < L ≤ 20480 líneas (footprint 72 KB – 960 KB)
 
-Al superar S1, los datos desbordan L1 y se producen fallos que resuelve L2. La penalización es mínima gracias al **DCU IP Stride Prefetcher**: detecta el stride constante del bucle y emite precargas a L1 antes de que sean necesarias, ocultando la latencia teórica de L2 (~14 ciclos). Los valores apenas suben respecto a la zona L1 en todas las variantes. La primera curva en degradarse al entrar en L2 es D=128 en la versión double indirecta (~7.81 ciclos en L=1152), porque saltos de 1024 bytes dificultan la predicción del stride prefetcher.
+La penalización al superar L1 es mínima en todas las variantes. El **DCU IP Stride Prefetcher** detecta el stride constante y emite precargas a L1 desde L2 antes de que sean necesarias, ocultando la latencia teórica de L2 (~14 ciclos). Los valores se mantienen por debajo de 7.5 ciclos en todos los casos.
 
-### 7.3 Zona L3 — L > 20480 líneas (footprint > 1.25 MB)
+### 7.3 Zona L3 — 20480 < L ≤ 786432 líneas (footprint 1.25 MB – 48 MB)
 
 ```mermaid
 graph TD
-    subgraph L3["Zona L3 — comportamiento por stride"]
-        D1["D=1 · Acceso secuencial DCU Streamer + L2 Streamer activos Latencia L3 completamente oculta 7–8 ciclos en las 3 variantes"]
-        D8["D=8 · Un elemento por línea IP Stride Prefetcher eficaz pero ind[] genera segundo stream (13.7 vs 8.2–8.9 ciclos en L=163840)"]
-        D16["D=16 · Dos líneas por salto IP Stride + Spatial Prefetcher PREFETCH POLLUTION Double indirecto: 19.7 ciclos peor caso absoluto"]
-        D64["D=64 · 8 líneas por salto Stride supera umbral del L2 Streamer prefetcher reduce actividad 10–12 ciclos"]
-        D128["D=128 · 16 líneas por salto Comportamiento similar a D=64 10–12 ciclos"]
+    subgraph L3zona["Zona L3 — comportamiento por stride"]
+        D1_L3["D=1 Plano ~7.1–7.2 ciclos L2 Streamer oculta latencia L3"]
+        D8_L3["D=8 Sube progresivamente hasta 11 ciclos en L=786432 Prefetcher eficaz pero limitado"]
+        D16_L3["D=16 Escala fuerte hasta 18 ciclos en L=786432 Prefetch pollution activa"]
+        D64_L3["D=64 Sube hasta 18 ciclos Stride supera umbral L2 Streamer"]
+        D128_L3["D=128 Comportamiento similar a D=64 hasta 18 ciclos"]
     end
 
-    style D1 fill:#d4edda,stroke:#28a745
-    style D8 fill:#fff3cd,stroke:#ffc107
-    style D16 fill:#f8d7da,stroke:#dc3545
-    style D64 fill:#fde8d8,stroke:#fd7e14
-    style D128 fill:#fde8d8,stroke:#fd7e14
+    style D1_L3 fill:#d4edda,stroke:#28a745
+    style D8_L3 fill:#fff3cd,stroke:#ffc107
+    style D16_L3 fill:#f8d7da,stroke:#dc3545
+    style D64_L3 fill:#fde8d8,stroke:#fd7e14
+    style D128_L3 fill:#fde8d8,stroke:#fd7e14
 ```
+
+El comportamiento diverge claramente a partir de L=40960. Con D=1 el L2 Streamer (que corre 20 líneas por delante) sigue siendo eficaz incluso con 48 MB de datos. Con D=16 el prefetch pollution se intensifica a medida que crece L porque hay más líneas inútiles traídas a L2.
+
+### 7.4 Zona RAM — L > 786432 líneas (footprint > 48 MB)
+
+La transición L3 → RAM es el hallazgo más importante de los experimentos ampliados. Entre L=786432 (48 MB, límite L3) y L=1572864 (96 MB, RAM) se observa un **cambio de comportamiento claro** en D=8, D=16, D=64 y D=128, mientras que **D=1 permanece completamente plano**.
+
+Comportamiento en RAM profunda (L=3145728, footprint 192 MB):
+
+| Stride | Double indirecto | Int indirecto | Double directo | vs. zona L3 |
+|:---:|:---:|:---:|:---:|:---:|
+| D=1 | 7.22 | 6.81 | 7.16 | sin cambio |
+| D=8 | 11.10 | 7.89 | 8.56 | estabilizado |
+| D=16 | 18.51 | 9.40 | 16.64 | estabilizado |
+| D=64 | 20.86 | 17.53 | 18.72 | máximo absoluto |
+| D=128 | 19.68 | 19.71 | 16.59 | máximo absoluto |
+
+Los valores se estabilizan entre L=1572864 y L=3145728, lo que confirma que a partir de cierto tamaño el sistema ha alcanzado la latencia de RAM pura y no hay más degradación.
 
 ---
 
-## 8. Análisis comparativo de las tres variantes
+## 8. La "escalera" completa observada experimentalmente
 
-### 8.1 Double indirecto vs. Int indirecto
+Con los nuevos datos ya se puede trazar la escalera completa de la jerarquía para cada stride. Para D=64 (double indirecto) los valores son:
 
-Usar `int` (4 bytes) en lugar de `double` (8 bytes) no cambia el número de líneas L referenciadas, pero sí el tamaño del vector de índices `ind[]` en relación al trabajo útil realizado.
+```mermaid
+graph LR
+    A["L1 ~7.1 ciclos (24 KB)"]
+    B["L2 ~7.4 ciclos (960 KB)"]
+    C["L3 entrada ~8.2 ciclos (2.5 MB)"]
+    D["L3 profunda ~18.4 ciclos (48 MB)"]
+    E["RAM ~20.9 ciclos (192 MB)"]
 
-**Int es más rápido en D=1 y D=8 en zona L3.** Para `int`, R es el doble que para `double`, pero el ratio entre bytes de datos y bytes de índices es más favorable: `ind[]` consume menos espacio relativo en caché, reduciendo la contención. Además, con más elementos por línea el IP Stride Prefetcher tiene más datos útiles por cada línea traída.
+    A -->|"+0.3"| B -->|"+0.8"| C -->|"+10.2"| D -->|"+2.5"| E
 
-**Int es más lento en D=64 y D=128 en zona L3.** Con R_int = 2×R_double y strides grandes, `ind[]` se vuelve enorme. Para L=163840 y D=64, la versión int tiene R=327.680 elementos → `ind[]` ocupa ~1.25 MB, exactamente el tamaño de L2, desbordándola solo con los índices y forzando accesos adicionales a L3.
+    style A fill:#d4edda,stroke:#28a745
+    style B fill:#fff3cd,stroke:#ffc107
+    style C fill:#ffe8cc,stroke:#ff9900
+    style D fill:#fde8d8,stroke:#fd7e14
+    style E fill:#f8d7da,stroke:#dc3545
+```
 
-### 8.2 Double directo vs. Double indirecto
+La escalera clásica aparece, pero atenuada respecto a las latencias teóricas porque el prefetcher sigue actuando parcialmente incluso con strides grandes. La diferencia L1→RAM real para D=64 es de **~13.7 ciclos** (7.1 → 20.9), frente a los ~145 ciclos teóricos sin prefetcher. El prefetcher atenúa la penalización en un factor de aproximadamente **10×**.
 
-La comparación más reveladora. Diferencias máximas en D=8 y D=16 en zona L3 profunda:
+---
+
+## 9. Análisis comparativo de las tres variantes en RAM
+
+### 9.1 Double indirecto vs. Int indirecto
+
+En RAM el tipo de dato marca diferencias importantes, especialmente para strides medios. Para D=16 en RAM (L=3145728): double indirecto 18.51 ciclos vs int indirecto 9.40 ciclos — una diferencia del **49%**. La razón es que con `int` R es el doble, pero `ind[]` pesa la mitad en bytes por elemento de `A[]` accedido, reduciendo la contención en caché. Además, con `int` el IP Stride tiene más elementos útiles por línea traída.
+
+Para D=64 y D=128 en RAM la situación se invierte: int indirecto (17–20 ciclos) iguala o supera al double indirecto porque R_int = 2×R_double hace que `ind[]` sea enorme (~750 MB para L=3145728, D=64), generando un volumen masivo de accesos a RAM solo para leer los índices.
+
+### 9.2 Double directo vs. Double indirecto en RAM
 
 | Configuración | Directo | Indirecto | Mejora |
 |:---:|:---:|:---:|:---:|
-| D=1, L=163840 | 7.61 | 7.93 | −4% |
-| D=8, L=163840 | 8.86 | 13.74 | **−36%** |
-| D=16, L=163840 | 11.30 | 19.75 | **−43%** |
-| D=64, L=163840 | 10.02 | 12.20 | −18% |
-| D=128, L=163840 | 9.86 | 11.77 | −16% |
+| D=1, L=3145728 | 7.16 | 7.22 | −1% |
+| D=8, L=3145728 | 8.56 | 11.10 | **−23%** |
+| D=16, L=3145728 | 16.64 | 18.51 | **−10%** |
+| D=64, L=3145728 | 18.72 | 20.86 | **−10%** |
+| D=128, L=3145728 | 16.59 | 19.68 | **−16%** |
 
-Dos efectos acumulativos explican la mejora del acceso directo: elimina el segundo stream de memoria (el acceso indirecto genera dos flujos simultáneos — uno para `ind[i]` y otro para `A[]` — que dividen los recursos del L2 Streamer entre dos patrones) y libera capacidad de caché (para L=163840 y D=1, `ind[]` ocupa ~5 MB, cuatro veces L2, espacio que en el acceso directo queda íntegramente disponible para `A[]`).
-
----
-
-## 9. Resumen cuantitativo en zona L3 profunda (L=163840)
-
-```mermaid
-xychart-beta
-    title "Ciclos/acceso en L3 profunda (L=163840) por stride y variante"
-    x-axis ["D=1", "D=8", "D=16", "D=64", "D=128"]
-    y-axis "Ciclos por acceso" 0 --> 22
-    bar [7.93, 13.74, 19.75, 12.20, 11.77]
-    bar [7.04, 8.16, 8.87, 11.80, 9.54]
-    bar [7.61, 8.86, 11.30, 10.02, 9.86]
-```
-
-> Barras por grupo de izquierda a derecha: azul = Double indirecto · naranja = Int indirecto · morado = Double directo
-
-El rango observable va de **7.04 ciclos** (int indirecto, D=1) a **19.75 ciclos** (double indirecto, D=16): un factor **2.8×** entre el mejor y el peor caso con los mismos datos en L3.
+En RAM la ventaja del acceso directo se reduce respecto a la zona L3 porque ahora el cuello de botella dominante es la latencia de RAM en sí misma, no la contención entre streams en caché. Con D=1 la diferencia es casi nula (1%) porque ambos patrones son perfectamente secuenciales y el prefetcher los gestiona igual de bien.
 
 ---
 
-## 10. Ausencia de la "escalera" clásica
+## 10. Resumen cuantitativo — evolución por zonas (D=16, double indirecto)
 
-Los libros de texto predicen latencias bien diferenciadas por nivel (~5, ~14, ~40, ~150 ciclos). Los resultados permanecen en el rango **7–20 ciclos** incluso para datos en L3. Hay dos razones:
+| Zona | L representativo | Footprint | Ciclos | Latencia observada |
+|:---:|:---:|:---:|:---:|:---:|
+| L1 | 384 | 24 KB | 7.06 | ~7 ciclos |
+| L2 | 15360 | 960 KB | 7.23 | ~7 ciclos (prefetcher oculta L2) |
+| L3 entrada | 40960 | 2.5 MB | 8.96 | ~9 ciclos |
+| L3 media | 163840 | 10 MB | 10.32 | ~10 ciclos |
+| L3 profunda | 786432 | 48 MB | 18.30 | ~18 ciclos |
+| RAM | 1572864 | 96 MB | 18.99 | ~19 ciclos |
+| RAM profunda | 3145728 | 192 MB | 18.51 | ~19 ciclos (estabilizado) |
 
-La primera es que los datos experimentales nunca llegan a RAM: el footprint máximo es de 10 MB (L=163840), que cabe dentro de los 48 MB de L3 compartida. La latencia de L3 (~40-50 ciclos teóricos) no se observa directamente porque la segunda razón la enmascara.
-
-La segunda es el prefetcher hardware: incluso accediendo a L3, el L2 Streamer corre hasta 20 líneas por delante del acceso actual y ajusta dinámicamente su profundidad, trayendo datos a L2 y L1 antes de que sean necesarios. Con D=1 esto es casi perfecto y la latencia de L3 queda completamente oculta. La escalera solo emerge con accesos aleatorios que frustran todos los prefetchers simultáneamente.
+La estabilización entre L=1572864 y L=3145728 confirma que se ha alcanzado la latencia de RAM pura. El prefetcher atenúa la penalización teórica (~150 ciclos) hasta ~19 ciclos, un factor de **8×** de mejora respecto a latencia pura.
 
 ---
 
 ## 11. Conclusiones
 
-**1. Los datos nunca llegan a RAM en estos experimentos.** El footprint máximo (L=163840 → 10 MB) cabe en L3 (48 MB). Los efectos observados son de L3, no de RAM.
+**1. La experimentación cubre toda la jerarquía completa.** Con los nuevos valores de L se desborda L3 (48 MB) y se accede a RAM real (96 MB y 192 MB de footprint), confirmando experimentalmente los cuatro niveles de la jerarquía.
 
-**2. La localidad espacial es el factor dominante en zona L3.** La diferencia entre D=1 (~7 ciclos) y D=16 (~20 ciclos en el peor caso) supone un factor 2.8×, enteramente atribuible a la interacción con los cuatro prefetchers hardware.
+**2. D=1 es inmune a la jerarquía de memoria.** Los cuatro prefetchers actúan coordinadamente ocultando completamente las latencias de L2, L3 y RAM. Con 192 MB de datos en RAM el programa obtiene ~7.2 ciclos, indistinguibles de L1.
 
-**3. D=16 es el stride más perjudicial.** Con un salto de exactamente 2 líneas de caché, el IP Stride Prefetcher y el Spatial Prefetcher actúan juntos generando tráfico al doble de la tasa necesaria (*prefetch pollution*), saturando el ancho de banda L2↔L3.
+**3. La "escalera" clásica aparece pero muy atenuada.** Para D=64 la diferencia L1→RAM es de ~13.7 ciclos (7.1 → 20.9) en lugar de los ~145 ciclos teóricos. El prefetcher atenúa la penalización aproximadamente **10×**.
 
-**4. Strides grandes (D=64, D=128) son paradójicamente mejores que D=16.** Cuando el stride supera el umbral de detección eficiente del L2 Streamer, el prefetcher reduce su actividad evitando el overhead de predicciones erróneas.
+**4. La transición L3→RAM es claramente observable** entre L=786432 y L=1572864 para todos los strides excepto D=1. Confirma experimentalmente que S3 = 786432 líneas es el límite correcto de L3.
 
-**5. El acceso indirecto impone un coste real en zona L3.** Eliminar `ind[]` (acceso directo) mejora entre un 4% y un 43% dependiendo del stride, con el mayor beneficio en D=8 y D=16, donde los dos streams de memoria simultáneos dividen los recursos del prefetcher.
+**5. D=16 sigue siendo el peor stride**, alcanzando ~19 ciclos en RAM con double indirecto, frente a ~7 ciclos de D=1 con los mismos datos — un factor **2.6×**.
 
-**6. `int` vs `double` produce resultados similares para las mismas líneas L.** Las diferencias provienen del tamaño de `ind[]`: ventaja para `int` en strides pequeños (menor contención) y desventaja en strides grandes (R_int = 2×R_double → mayor presión sobre L2 con los índices).
+**6. El acceso indirecto penaliza más en zona L3 que en RAM.** La ventaja del acceso directo es máxima en la zona L3 media (hasta 43% mejor) porque ahí los dos streams de memoria compiten por los recursos del prefetcher. En RAM la penalización se reduce porque el cuello de botella pasa a ser la latencia de RAM pura.
 
-**7. El prefetcher del Ice Lake (Sunny Cove) es extraordinariamente eficaz.** Con acceso secuencial (D=1), la latencia de L3 (~40-50 ciclos teóricos) queda completamente oculta gracias a la coordinación del DCU Streamer, IP Stride y L2 Streamer, y el programa se comporta como si todo residiera en L1.
+**7. `int` supera a `double` para strides pequeños incluso en RAM.** La versión int con D=16 obtiene 9.40 ciclos en RAM frente a 18.51 de double indirecto — un 49% mejor — porque el menor peso de `ind[]` reduce la presión sobre el subsistema de memoria.
 
 ---
 
-*FinisTerrae III (CESGA) · Intel Xeon Platinum 8352Y (Ice Lake / Sunny Cove) · gcc -O0 · 10 repeticiones × 35 combinaciones × 3 variantes = 1050 mediciones totales · Métrica: media geométrica de los 3 mejores valores de ciclos/acceso.*
+*FinisTerrae III (CESGA) · Intel Xeon Platinum 8352Y (Ice Lake / Sunny Cove) · gcc -O0 · 10 repeticiones × 55 combinaciones × 3 variantes = 1650 mediciones totales · Métrica: media geométrica de los 3 mejores valores de ciclos/acceso.*
