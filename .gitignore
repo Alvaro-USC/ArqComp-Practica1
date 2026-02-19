@@ -3,3 +3,4 @@ resultados_local/
 *.png
 *.txt
 *.csv
+sync_cesga.sh
