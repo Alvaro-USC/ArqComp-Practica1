@@ -204,7 +204,7 @@ Para cada combinación $(D, L)$: 10 repeticiones externas, media geométrica de 
 \section{Diseño Experimental, Códigos y Saltos de Caché}
 
 \subsection{Selección de Valores de Experimentación}
-Los valores de experimentación fueron seleccionados minuciosamente basándose en la arquitectura del procesador. Se identificó el número de líneas límite para cada nivel de memoria: $S_1 = 768$ (L1), $S_2 = 20\,480$ (L2) y $S_3 = 786\,432$ (L3). A partir de estos topes, los valores de prueba $L$ se escogieron utilizando fracciones o múltiplos representativos (por ejemplo, $0.5 \times S_1$, $1.5 \times S_1$, $4.0 \times S_3$). Este método garantiza probar escenarios donde los datos residen cómodamente dentro de una caché, desbordan sutilmente al siguiente nivel, o llenan por completo la jerarquía obligando al sistema a acceder a la memoria RAM profunda (hasta 192 MB).
+Los valores de experimentación fueron seleccionados minuciosamente basándose en la arquitectura del procesador. Se identificó el número de líneas límite de memoria dividiendo el tamaño de cada nivel por el tamaño de una línea de caché ($64\ bytes$): $S_1 = 768$ (L1), $S_2 = 20\,480$ (L2) y $S_3 = 786\,432$ (L3). A partir de estos topes, los valores de prueba $L$ se escogieron utilizando fracciones o múltiplos representativos (por ejemplo, $0.5 \times S_1$, $1.5 \times S_1$, $4.0 \times S_3$). Este método garantiza probar escenarios donde los datos residen cómodamente dentro de una caché, desbordan sutilmente al siguiente nivel, o llenan por completo la jerarquía obligando al sistema a acceder a la memoria RAM profunda (hasta 192 MB).
 
 \subsection{Desarrollo de los Códigos en C}
 Se implementaron tres variantes en lenguaje C para estudiar las diferencias arquitectónicas:
