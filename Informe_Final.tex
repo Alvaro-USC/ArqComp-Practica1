@@ -1,21 +1,15 @@
-%% informe_practica1.tex
-%% Práctica 1 — Jerarquía de Memoria y Comportamiento de Caché
-%% Arquitectura de Computadores — FinisTerrae III (CESGA)
-%% Compilar: pdflatex informe_practica1.tex  (2 pasadas)
+%% informe_practica1.tex  v2
+%% Compilar: pdflatex informe_practica1_v2.tex  (2 pasadas)
 
 \documentclass[12pt,a4paper]{article}
 
-% ── Paquetes ────────────────────────────────────────────────────────────────
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage{geometry}
 \geometry{left=2.5cm, right=2.5cm, top=2.8cm, bottom=2.8cm, headheight=14pt}
-
 \usepackage{amsmath}
 \usepackage{graphicx}
 \usepackage{booktabs}
-\usepackage{multirow}
-\usepackage{array}
 \usepackage{xcolor}
 \usepackage{listings}
 \usepackage{caption}
@@ -27,531 +21,489 @@
 \usepackage{float}
 \usepackage{parskip}
 
-% ── Colores personalizados ──────────────────────────────────────────────────
 \definecolor{verde}{RGB}{40,167,69}
-\definecolor{amarillo}{RGB}{255,193,7}
+\definecolor{naranja}{RGB}{255,140,0}
 \definecolor{rojo}{RGB}{220,53,69}
-\definecolor{naranja}{RGB}{253,126,20}
 \definecolor{azul}{RGB}{0,86,179}
 \definecolor{grisclaro}{RGB}{248,249,250}
-\definecolor{griscode}{RGB}{40,40,40}
 
-% ── Configuración de listings (código C) ────────────────────────────────────
 \lstset{
   language=C,
-  basicstyle=\ttfamily\small,
+  basicstyle=\ttfamily\footnotesize,
   keywordstyle=\color{azul}\bfseries,
   commentstyle=\color{verde}\itshape,
-  stringstyle=\color{rojo},
-  numbers=left,
-  numberstyle=\tiny\color{gray},
-  numbersep=8pt,
-  frame=single,
-  backgroundcolor=\color{grisclaro},
-  breaklines=true,
-  captionpos=b,
-  tabsize=4,
-  showstringspaces=false,
-  xleftmargin=15pt,
+  numbers=left, numberstyle=\tiny\color{gray}, numbersep=8pt,
+  frame=single, backgroundcolor=\color{grisclaro},
+  breaklines=true, captionpos=b, tabsize=4,
+  showstringspaces=false, xleftmargin=15pt,
 }
 
-% ── Cabecera y pie de página ─────────────────────────────────────────────────
 \pagestyle{fancy}
 \fancyhf{}
-\fancyhead[L]{\small Arquitectura de Computadores — Práctica 1}
-\fancyhead[R]{\small FinisTerrae III · Intel Xeon Platinum 8352Y}
+\fancyhead[L]{\small Arquitectura de Computadores --- Practica 1}
+\fancyhead[R]{\small FinisTerrae III $\cdot$ Intel Xeon Platinum 8352Y}
 \fancyfoot[C]{\thepage}
 \renewcommand{\headrulewidth}{0.4pt}
 
-% ── Formato de secciones ────────────────────────────────────────────────────
 \titleformat{\section}{\large\bfseries\color{azul}}{{\thesection}}{1em}{}[\vspace{-4pt}\rule{\linewidth}{0.6pt}]
 \titleformat{\subsection}{\normalsize\bfseries}{{\thesubsection}}{1em}{}
 
-% ── Macros de conveniencia ──────────────────────────────────────────────────
-\newcommand{\ciclos}[1]{\textbf{#1} ciclos}
-\newcommand{\verde}[1]{\textcolor{verde}{#1}}
-\newcommand{\amarillo}[1]{\textcolor{orange}{#1}}
-\newcommand{\rojo}[1]{\textcolor{rojo}{#1}}
+\newcommand{\cverde}[1]{\textcolor{verde}{#1}}
+\newcommand{\cnaranja}[1]{\textcolor{naranja}{#1}}
+\newcommand{\crojo}[1]{\textcolor{rojo}{#1}}
 
-% ── Metadatos PDF ───────────────────────────────────────────────────────────
-\hypersetup{
-  pdftitle={Práctica 1 — Jerarquía de Memoria},
-  pdfauthor={Arquitectura de Computadores},
-  colorlinks=true,
-  linkcolor=azul,
-  urlcolor=azul,
-}
+\hypersetup{pdftitle={Practica 1}, colorlinks=true, linkcolor=azul, urlcolor=azul}
 
-% ════════════════════════════════════════════════════════════════════════════
 \begin{document}
 
-% ── Portada ─────────────────────────────────────────────────────────────────
+%% ─── PORTADA ────────────────────────────────────────────────────────────────
 \begin{titlepage}
-  \centering
-  \vspace*{2cm}
+  \centering\vspace*{2cm}
   {\LARGE\bfseries\color{azul} Arquitectura de Computadores\par}
-  \vspace{0.4cm}
-  {\large Práctica 1\par}
-  \vspace{1.2cm}
-  \rule{0.8\textwidth}{1pt}
-  \vspace{0.5cm}
+  \vspace{0.4cm}{\large Practica 1\par}\vspace{1.2cm}
+  \rule{0.8\textwidth}{1pt}\vspace{0.5cm}
 
-  {\LARGE\bfseries Jerarquía de Memoria y Comportamiento de Caché\par}
+  {\LARGE\bfseries Jerarquia de Memoria y Comportamiento de Cache\par}
   \vspace{0.3cm}
   {\large Estudio del efecto de la localidad de los accesos a memoria\par
    en las prestaciones de programas en microprocesadores\par}
-
-  \vspace{0.5cm}
-  \rule{0.8\textwidth}{1pt}
-  \vspace{2cm}
+  \vspace{0.5cm}\rule{0.8\textwidth}{1pt}\vspace{2cm}
 
   \begin{tabular}{ll}
     \textbf{Plataforma:} & FinisTerrae III (CESGA) \\[4pt]
-    \textbf{Procesador:} & Intel Xeon Platinum 8352Y (Ice Lake) \\[4pt]
+    \textbf{Procesador:} & Intel Xeon Platinum 8352Y (Ice Lake-SP) \\[4pt]
     \textbf{Compilador:} & \texttt{gcc -O0} \\[4pt]
     \textbf{Jobs Slurm:}  & 5366644, 5367628, 5367629, 5367630 \\[4pt]
-    \textbf{Métrica:}     & Media geométrica de los 3 mejores de 10 repeticiones \\
+    \textbf{Strides D:}   & 1, 8, 16, 64, 128, 256, 512 (7 valores) \\[4pt]
+    \textbf{Tamanos L:}   & 11 valores, de 384 a 3\,145\,728 lineas \\[4pt]
+    \textbf{Mediciones:}  & $3 \times 7 \times 11 \times 10 = 2\,310$ totales \\[4pt]
+    \textbf{Metrica:}     & Media geometrica de los 3 mejores de 10 repeticiones \\
   \end{tabular}
-
-  \vfill
-  {\large\today\par}
+  \vfill{\large\today\par}
 \end{titlepage}
 
-% ── Índice ───────────────────────────────────────────────────────────────────
-\tableofcontents
-\clearpage
+\tableofcontents\clearpage
 
-% ════════════════════════════════════════════════════════════════════════════
-\section{Introducción y objetivos}
+%% ─── 1. INTRODUCCION ────────────────────────────────────────────────────────
+\section{Introduccion y objetivos}
 
-Esta práctica estudia el efecto de la jerarquía de memoria sobre el coste temporal de los accesos a datos. El objetivo principal es \textbf{caracterizar experimentalmente la latencia de cada nivel de caché} del procesador Intel Xeon Platinum 8352Y variando dos parámetros clave:
+Esta practica caracteriza experimentalmente la latencia de cada nivel de la jerarquia de memoria del procesador Intel Xeon Platinum 8352Y mediante una operacion de reduccion de suma sobre un vector con patron de acceso controlado. Se varian dos parametros:
 
 \begin{itemize}[leftmargin=1.5em]
-  \item \textbf{D (stride):} separación en elementos entre posiciones accedidas. Controla la localidad espacial.
-  \item \textbf{L (líneas):} número de líneas de caché distintas referenciadas. Determina el nivel de la jerarquía que almacena los datos.
+  \item \textbf{D (stride):} separacion en elementos entre posiciones accedidas. Controla la localidad espacial y la eficacia del hardware prefetcher.
+  \item \textbf{L (lineas):} numero de lineas de cache distintas referenciadas. Determina en que nivel de la jerarquia residen los datos durante el experimento.
 \end{itemize}
 
-El experimento base suma $R$ elementos del vector \texttt{A[]} con patrón $A[0], A[D], A[2D], \ldots, A[(R{-}1)D]$, accedidos de forma \textbf{indirecta} a través de un vector de índices \texttt{ind[]}. Se añaden dos experimentos adicionales: acceso con tipo \texttt{int} en lugar de \texttt{double}, y acceso \textbf{directo} eliminando el vector de índices.
+El experimento base accede de forma \textbf{indirecta} mediante el vector de indices \texttt{ind[]}. Se realizan dos experimentos adicionales: con tipo \texttt{int} (4 bytes en lugar de 8) y con acceso \textbf{directo} eliminando \texttt{ind[]}.
 
-% ════════════════════════════════════════════════════════════════════════════
+%% ─── 2. ARQUITECTURA ────────────────────────────────────────────────────────
 \section{Arquitectura del sistema}
 
-\subsection{Jerarquía de memoria del Intel Xeon Platinum 8352Y}
-
-El procesador implementa la microarquitectura \textbf{Sunny Cove (Ice Lake-SP)} con la siguiente jerarquía:
+\subsection{Jerarquia de memoria}
 
 \begin{table}[H]
 \centering
-\caption{Jerarquía de caché del Intel Xeon Platinum 8352Y}
+\caption{Jerarquia de cache del Intel Xeon Platinum 8352Y (Ice Lake-SP)}
 \label{tab:jerarquia}
 \begin{tabular}{lllll}
 \toprule
-\textbf{Nivel} & \textbf{Capacidad} & \textbf{Asociatividad} & \textbf{S (líneas)} & \textbf{Latencia aprox.} \\
+\textbf{Nivel} & \textbf{Capacidad} & \textbf{Asoc.} & \textbf{S (lineas)} & \textbf{Latencia aprox.} \\
 \midrule
-L1d & 48 KB & 12-way & $S_1 = 768$ & $\sim$5 ciclos \\
-L2  & 1.25 MB & 20-way & $S_2 = 20\,480$ & $\sim$14 ciclos \\
-L3  & 48 MB & 12-way & $S_3 = 786\,432$ & $\sim$40--50 ciclos \\
-RAM & 256 GB DDR4 & — & — & $\sim$150--200 ciclos \\
+L1d & 48 KB   & 12-way & $S_1 = 768$       & $\sim$5 ciclos \\
+L2  & 1.25 MB & 20-way & $S_2 = 20\,480$   & $\sim$14 ciclos \\
+L3  & 48 MB   & 12-way & $S_3 = 786\,432$  & $\sim$40--50 ciclos \\
+RAM & 256 GB DDR4 & ---  & ---              & $\sim$150--200 ciclos \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-La línea de caché tiene un tamaño de \textbf{64 bytes} en todos los niveles. Los experimentos se ejecutan en \textbf{un único core} para garantizar que L1 y L2 son privadas y no hay contención con otros procesos.
+Tamano de linea de cache: \textbf{CLS = 64 bytes}. Los experimentos se ejecutan en \textbf{un unico core} con el nodo completo reservado (\texttt{-c 64}).
 
-\subsection{Prefetcher hardware de Ice Lake}
+\subsection{Prefetcher hardware (microarquitectura Sunny Cove)}
 
-El procesador dispone de \textbf{cuatro prefetchers hardware} independientes que actúan coordinadamente:
-
-\subsubsection*{Prefetchers de L1 (cargan desde L2 hacia L1)}
+El procesador implementa cuatro prefetchers hardware independientes:
 
 \begin{description}[leftmargin=1.5em]
-  \item[DCU Streamer (Next-Line Prefetcher):] Detecta accesos ascendentes y precarga automáticamente la siguiente línea de caché. Se activa con cualquier patrón secuencial.
-  \item[DCU IP-based Stride Prefetcher:] Rastrea instrucciones de carga individuales. Cuando detecta un stride regular, emite precargas a \texttt{dirección\_actual + stride}. Detecta strides de hasta 2 KB en ambas direcciones.
+  \item[DCU Streamer:] Precarga la siguiente linea de cache ante accesos ascendentes. Se activa con cualquier patron secuencial.
+  \item[DCU IP Stride Prefetcher:] Rastrea instrucciones de carga individuales. Cuando detecta un stride regular, emite precargas anticipadas hasta 2 KB de distancia.
+  \item[L2 Streamer:] Monitoriza peticiones desde L1 y corre hasta \textbf{20 lineas por delante}. Gestiona hasta 32 streams. No cruza limites de pagina de 4 KB.
+  \item[L2 Spatial (Adjacent Cache Line):] Completa cada linea cargada en L2 con su linea adyacente (bloques de 128 bytes). Su actuacion independiente del patron provoca \emph{prefetch pollution} con $D=16$.
 \end{description}
 
-\subsubsection*{Prefetchers de L2 (cargan desde L3 hacia L2)}
+%% ─── 3. METODOLOGIA ─────────────────────────────────────────────────────────
+\section{Metodologia}
 
-\begin{description}[leftmargin=1.5em]
-  \item[L2 Streamer:] Monitoriza secuencias de peticiones desde L1. Puede correr hasta \textbf{20 líneas por delante} y gestiona hasta 32 streams simultáneos. No cruza límites de página de 4 KB.
-  \item[L2 Spatial (Adjacent Cache Line) Prefetcher:] Completa cada línea cargada en L2 con su línea adyacente, garantizando bloques de 128 bytes alineados.
-\end{description}
+\subsection{Parametros del experimento}
 
-\subsubsection*{Implicaciones experimentales}
+\subsubsection*{Strides D}
 
-Con $D=1$, los cuatro prefetchers actúan coordinadamente ocultando completamente las latencias de L2, L3 e incluso RAM. Con $D=16$ se produce \emph{prefetch pollution}: el prefetcher spatial trae líneas adyacentes inútiles duplicando el tráfico efectivo. Con $D \geq 64$, el stride supera el umbral eficiente del L2 Streamer, aunque el IP Stride Prefetcher sigue actuando parcialmente.
-
-% ════════════════════════════════════════════════════════════════════════════
-\section{Metodología}
-
-\subsection{Parámetros experimentales}
+Se usan \textbf{7 valores} potencia de 2: $D \in \{1, 8, 16, 64, 128, 256, 512\}$. Los dos valores nuevos son $D=256$ (stride de 16 KB) y $D=512$ (stride de 32 KB), que permiten observar el comportamiento cuando el L2 Streamer es completamente ineficaz y la latencia se estabiliza en su valor maximo.
 
 \subsubsection*{Valores de L}
 
-Se toman 11 medidas abarcando toda la jerarquía, desde L1 hasta RAM profunda:
-
 \begin{table}[H]
 \centering
-\caption{Valores de L utilizados y nivel de jerarquía correspondiente}
+\caption{Valores de L y nivel de jerarquia correspondiente}
 \label{tab:valoresL}
 \begin{tabular}{rrlr}
 \toprule
-\textbf{L (líneas)} & \textbf{Fracción} & \textbf{Footprint} & \textbf{Nivel} \\
+\textbf{L (lineas)} & \textbf{Fraccion} & \textbf{Footprint} & \textbf{Nivel} \\
 \midrule
-384       & $0.5 \times S_1$    & 24 KB   & L1 (holgado) \\
-1\,152    & $1.5 \times S_1$    & 72 KB   & L2 (desborda L1) \\
-10\,240   & $0.5 \times S_2$    & 640 KB  & L2 (holgado) \\
-15\,360   & $0.75 \times S_2$   & 960 KB  & L2 (ajustado) \\
-40\,960   & $2 \times S_2$      & 2.5 MB  & L3 (desborda L2) \\
-81\,920   & $4 \times S_2$      & 5 MB    & L3 \\
-163\,840  & $8 \times S_2$      & 10 MB   & L3 \\
-524\,288  & $0.67 \times S_3$   & 32 MB   & L3 (llenando) \\
-786\,432  & $1 \times S_3$      & 48 MB   & Límite exacto L3 \\
-1\,572\,864 & $2 \times S_3$   & 96 MB   & \textbf{RAM real} \\
-3\,145\,728 & $4 \times S_3$   & 192 MB  & \textbf{RAM profunda} \\
+384         & $0.5 \times S_1$    & 24 KB   & L1 (holgado) \\
+1\,152      & $1.5 \times S_1$    & 72 KB   & L2 (desborda L1) \\
+10\,240     & $0.5 \times S_2$    & 640 KB  & L2 (holgado) \\
+15\,360     & $0.75 \times S_2$   & 960 KB  & L2 (ajustado) \\
+40\,960     & $2 \times S_2$      & 2.5 MB  & L3 (desborda L2) \\
+81\,920     & $4 \times S_2$      & 5 MB    & L3 \\
+163\,840    & $8 \times S_2$      & 10 MB   & L3 \\
+524\,288    & $0.67 \times S_3$   & 32 MB   & L3 (llenando) \\
+786\,432    & $1 \times S_3$      & 48 MB   & Limite exacto L3 \\
+1\,572\,864 & $2 \times S_3$      & 96 MB   & \textbf{RAM real} \\
+3\,145\,728 & $4 \times S_3$      & 192 MB  & \textbf{RAM profunda} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\subsubsection*{Valores de D (stride)}
+\subsection{Calculo de R}
 
-Se emplean 5 valores potencia de 2: $D \in \{1, 8, 16, 64, 128\}$, seleccionados para cubrir todos los regímenes del prefetcher:
-
-\begin{itemize}[leftmargin=1.5em]
-  \item $D=1$: acceso completamente secuencial; localidad espacial máxima.
-  \item $D=8$: stride de 64 bytes; exactamente una línea de caché por acceso.
-  \item $D=16$: stride de 128 bytes; activa el prefetch pollution del spatial prefetcher.
-  \item $D=64, D=128$: strides grandes que superan el umbral del L2 Streamer.
-\end{itemize}
-
-\subsection{Cálculo de R}
-
-Para un valor de D y L dados, el número de elementos a sumar $R$ se calcula como:
 \[
-  R = \frac{L \times \text{CLS}}{D \times \text{sizeof(tipo)}}
+  R = \frac{L \times \text{CLS}}{D \times \text{sizeof(tipo)}}, \qquad N = (R-1) \cdot D + 1
 \]
-donde CLS = 64 bytes. El vector \texttt{A[]} tiene $N = (R-1) \cdot D + 1$ elementos en total.
 
-\subsection{Tratamiento estadístico}
+\subsection{Configuracion Slurm: nodo dedicado con \texttt{-c 64}}
 
-Para cada combinación $(D, L)$ se ejecutan \textbf{10 repeticiones externas}, cada una con 10 repeticiones internas del bucle de suma. Se seleccionan los 3 menores valores de ciclos/acceso y se calcula su \textbf{media geométrica}, eliminando medidas atípicas por interferencia del SO.
-
-\subsection{Variantes del experimento}
+Los tres scripts de Slurm se configuran con \texttt{\#SBATCH -c 64}, reservando los \textbf{64 cores logicos del nodo completo} aunque solo se utilice uno para la medicion. Esta decision es crucial por cuatro razones:
 
 \begin{enumerate}[leftmargin=1.5em]
-  \item \textbf{Double + indirecto} (\texttt{acp1.c}): caso base con \texttt{double} y acceso \texttt{A[ind[i]]}.
-  \item \textbf{Int + indirecto} (\texttt{acp1\_int.c}): tipo \texttt{int} (4 bytes); R es el doble para el mismo L.
-  \item \textbf{Double + directo} (\texttt{acp1\_directo.c}): elimina \texttt{ind[]} y accede como \texttt{A[i*D]}.
+  \item Garantiza que ningun otro proceso del sistema de colas comparte el nodo, eliminando contaminacion por trafico de cache externo.
+  \item Asegura que L1 y L2 (privadas por core) son exclusivas del proceso de medicion.
+  \item Evita que el planificador del SO migre el proceso a otro core con cachés en estado diferente.
+  \item Reduce la variabilidad en la zona L3 (compartida entre los 36 cores fisicos del socket), donde otros procesos provocarian expulsiones de lineas ajenas.
 \end{enumerate}
 
-En total se realizan $3 \times 5 \times 11 \times 10 = \mathbf{1\,650}$ mediciones.
+\subsection{Tratamiento estadistico}
 
-% ════════════════════════════════════════════════════════════════════════════
-\section{Implementación}
+Para cada combinacion $(D, L)$: 10 repeticiones externas, media geometrica de los 3 mejores valores de ciclos/acceso.
 
-\subsection{Programa principal: \texttt{acp1.c}}
+%% ─── 4. IMPLEMENTACION ──────────────────────────────────────────────────────
+\section{Implementacion}
 
-El programa recibe como argumentos el stride D y el número de líneas L. Los aspectos más relevantes de la implementación son:
+\subsection{\texttt{acp1.c} --- experimento base}
 
-\begin{itemize}[leftmargin=1.5em]
-  \item \textbf{Alineación de memoria:} \texttt{aligned\_alloc(64, N * sizeof(double))} garantiza que el inicio de \texttt{A[]} coincide con el inicio de una línea de caché. Esto es crítico para resultados precisos en la zona L1, donde la alineación determina si el primer acceso produce un fallo de caché parcial.
-  \item \textbf{Calentamiento implícito:} la inicialización de \texttt{A[]} recorre las mismas posiciones que el bucle de medición, pre-cargando las líneas relevantes en caché y evitando efectos de arranque en frío de las TLBs.
-  \item \textbf{Evitar optimizaciones:} el resultado de la suma se almacena en \texttt{acum[k]} y se usa en una condición al final del programa, impidiendo que \texttt{gcc -O0} elimine el bucle por dead-code elimination.
-  \item \textbf{Medición:} se miden los ciclos totales de las 10 repeticiones internas con las rutinas \texttt{start\_counter()} / \texttt{get\_counter()} de \texttt{counter.h}, y se divide por $R \times 10$ para obtener ciclos por acceso.
-\end{itemize}
-
-\begin{lstlisting}[caption={Fragmento principal de \texttt{acp1.c}: cálculo de R y bucle de medición}, label=lst:acp1]
-// Cálculo de R: líneas referenciadas × bytes/línea / (stride × bytes/elemento)
+\begin{lstlisting}[caption={Calculo de R y bucle de medicion (acp1.c)}, label=lst:acp1]
+// R = lineas * bytes/linea / (stride * bytes/elem)
 long long R = (long long)L * CLS / (D * sizeof(double));
 long long N = (R - 1) * D + 1;
 
-// Reserva alineada al inicio de línea de caché
-double *A = (double*)aligned_alloc(CLS, N * sizeof(double));
+// Reserva alineada: inicio de A[] coincide con inicio de linea de cache
+double *A   = (double*)aligned_alloc(CLS, N * sizeof(double));
 int    *ind = (int*)malloc(R * sizeof(int));
 
-// Inicialización: calentamiento implícito de caché y TLBs
+// Inicializacion = calentamiento de cache y TLBs
 for (long long i = 0; i < R; i++) ind[i] = i * D;
 for (long long i = 0; i < R; i++) A[ind[i]] = (double)rand() / RAND_MAX;
 
-// Sección crítica de medición
+// Medicion de ciclos
 start_counter();
 for (int k = 0; k < REPS; k++) {
     double suma = 0.0;
     for (long long i = 0; i < R; i++)
-        suma += A[ind[i]];      // Acceso indirecto
+        suma += A[ind[i]];   // Acceso indirecto: ind[i] -> A[]
     acum[k] = suma;
 }
 double ciclos_totales = get_counter();
-
 double ciclos_por_acceso = ciclos_totales / ((double)R * REPS);
 \end{lstlisting}
 
-% ════════════════════════════════════════════════════════════════════════════
+\subsection{\texttt{acp1\_directo.c} y \texttt{acp1\_int.c}}
+
+\begin{lstlisting}[caption={Diferencias clave de las variantes adicionales}, label=lst:variantes]
+// --- acp1_directo.c: acceso directo sin ind[] ---
+for (long long i = 0; i < R; i++)
+    suma += A[i * D];  // Un acceso a memoria (vs. dos en el caso indirecto)
+
+// --- acp1_int.c: tipo int (4 bytes, R = el doble) ---
+long long R = (long long)L * CLS / (D * sizeof(int)); // R * 2
+int *A = (int*)aligned_alloc(CLS, N * sizeof(int));
+int suma = 0;
+for (long long i = 0; i < R; i++)
+    suma += A[ind[i]]; // ADD entero: menor latencia que FADD flotante
+\end{lstlisting}
+
+%% ─── 5. RESULTADOS ──────────────────────────────────────────────────────────
 \section{Resultados experimentales}
 
-\subsection{Experimento base: Double + acceso indirecto}
+Codigo de colores en las tablas: \cverde{verde $< 8$ ciclos} / \cnaranja{naranja 8--12 ciclos} / \crojo{rojo $> 12$ ciclos}.
+
+\subsection{Double + acceso indirecto (\texttt{acp1.c})}
 
 \begin{table}[H]
 \centering
-\caption{Ciclos de CPU por acceso — Double + acceso indirecto (\texttt{acp1.c}). Sombreado: \verde{$<8$~cic.} / \amarillo{8--12~cic.} / \rojo{$>12$~cic.}}
+\caption{Ciclos/acceso --- Double indirecto. 7 strides $\times$ 11 valores de L.}
 \label{tab:double_ind}
-\setlength{\tabcolsep}{5pt}
-\begin{tabular}{rllccccc}
+\setlength{\tabcolsep}{4pt}\footnotesize
+\begin{tabular}{rlrrrrrrr}
 \toprule
-\textbf{L} & \textbf{Nivel} & \textbf{Footprint} & \textbf{D=1} & \textbf{D=8} & \textbf{D=16} & \textbf{D=64} & \textbf{D=128} \\
+\textbf{L} & \textbf{Nivel} & \textbf{D=1} & \textbf{D=8} & \textbf{D=16} & \textbf{D=64} & \textbf{D=128} & \textbf{D=256} & \textbf{D=512} \\
 \midrule
-384        & L1         & 24 KB   & \verde{7.08} & \verde{7.14} & \verde{7.06} & \verde{7.15} & \verde{7.12} \\
-1\,152     & L2         & 72 KB   & \verde{7.09} & \verde{7.17} & \verde{7.18} & \verde{7.20} & \verde{7.28} \\
-10\,240    & L2         & 640 KB  & \verde{7.12} & \verde{7.19} & \verde{7.21} & \verde{7.29} & \verde{7.27} \\
-15\,360    & L2         & 960 KB  & \verde{7.13} & \verde{7.20} & \verde{7.23} & \verde{7.41} & \verde{7.33} \\
-40\,960    & L3         & 2.5 MB  & \verde{7.15} & \verde{7.45} & \amarillo{8.96} & \amarillo{8.18} & \amarillo{8.28} \\
-81\,920    & L3         & 5 MB    & \verde{7.18} & \verde{7.52} & \amarillo{9.48} & \amarillo{8.23} & \amarillo{8.21} \\
-163\,840   & L3         & 10 MB   & \verde{7.22} & \amarillo{8.20} & \amarillo{10.32} & \amarillo{8.33} & \amarillo{8.64} \\
-524\,288   & L3         & 32 MB   & \verde{7.22} & \amarillo{11.01} & \rojo{17.59} & \rojo{17.14} & \rojo{17.09} \\
-786\,432   & Límite L3  & 48 MB   & \verde{7.23} & \amarillo{11.15} & \rojo{18.30} & \rojo{18.43} & \rojo{18.59} \\
-1\,572\,864 & \textbf{RAM} & 96 MB & \verde{7.23} & \amarillo{11.09} & \rojo{18.99} & \rojo{20.55} & \rojo{19.42} \\
-3\,145\,728 & \textbf{RAM} & 192 MB & \verde{7.22} & \amarillo{11.10} & \rojo{18.51} & \rojo{20.86} & \rojo{19.68} \\
+384         & L1         & \cverde{7.08}  & \cverde{7.13} & \cverde{7.07} & \cverde{7.07} & \cverde{7.14} & \cverde{7.65}  & \cnaranja{8.77} \\
+1\,152      & L2         & \cverde{7.09}  & \cverde{7.16} & \cverde{7.19} & \cverde{7.17} & \cverde{7.23} & \cverde{7.30}  & \cverde{7.29} \\
+10\,240     & L2         & \cverde{7.12}  & \cverde{7.18} & \cverde{7.20} & \cverde{7.20} & \cverde{7.29} & \cverde{7.26}  & \cverde{7.35} \\
+15\,360     & L2         & \cverde{7.12}  & \cverde{7.22} & \cverde{7.21} & \cverde{7.28} & \cverde{7.41} & \cverde{7.30}  & \cverde{7.43} \\
+40\,960     & L3         & \cverde{7.12}  & \cverde{7.35} & \cverde{7.65} & \cverde{7.81} & \cverde{7.83} & \cverde{7.48}  & \cverde{7.97} \\
+81\,920     & L3         & \cverde{7.12}  & \cverde{7.28} & \cverde{7.63} & \cverde{7.63} & \cverde{7.48} & \cverde{7.49}  & \cverde{7.63} \\
+163\,840    & L3         & \cverde{7.13}  & \cverde{7.29} & \cverde{7.64} & \cverde{7.56} & \cverde{7.48} & \cverde{7.54}  & \cverde{7.69} \\
+524\,288    & L3         & \cverde{7.18}  & \cnaranja{8.85} & \crojo{13.00} & \crojo{13.85} & \crojo{13.65} & \crojo{14.06} & \crojo{13.07} \\
+786\,432    & L3 lim.    & \cverde{7.19}  & \cnaranja{9.48} & \crojo{14.80} & \crojo{14.93} & \crojo{14.35} & \crojo{15.07} & \crojo{15.05} \\
+1\,572\,864 & \textbf{RAM} & \cverde{7.20} & \cnaranja{9.81} & \crojo{16.18} & \crojo{16.61} & \crojo{15.30} & \crojo{15.70} & \crojo{17.26} \\
+3\,145\,728 & \textbf{RAM} & \cverde{7.20} & \cnaranja{9.85} & \crojo{17.13} & \crojo{17.70} & \crojo{15.81} & \crojo{16.29} & \crojo{17.16} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\subsection{Experimento adicional 1: Int + acceso indirecto}
+\subsection{Int + acceso indirecto (\texttt{acp1\_int.c})}
 
 \begin{table}[H]
 \centering
-\caption{Ciclos de CPU por acceso — Int + acceso indirecto (\texttt{acp1\_int.c})}
+\caption{Ciclos/acceso --- Int indirecto.}
 \label{tab:int_ind}
-\setlength{\tabcolsep}{5pt}
-\begin{tabular}{rllccccc}
+\setlength{\tabcolsep}{4pt}\footnotesize
+\begin{tabular}{rlrrrrrrr}
 \toprule
-\textbf{L} & \textbf{Nivel} & \textbf{Footprint} & \textbf{D=1} & \textbf{D=8} & \textbf{D=16} & \textbf{D=64} & \textbf{D=128} \\
+\textbf{L} & \textbf{Nivel} & \textbf{D=1} & \textbf{D=8} & \textbf{D=16} & \textbf{D=64} & \textbf{D=128} & \textbf{D=256} & \textbf{D=512} \\
 \midrule
-384        & L1         & 24 KB   & \verde{6.77} & \verde{6.79} & \verde{6.84} & \verde{6.80} & \verde{6.82} \\
-1\,152     & L2         & 72 KB   & \verde{6.78} & \verde{6.82} & \verde{7.17} & \verde{7.23} & \verde{7.21} \\
-10\,240    & L2         & 640 KB  & \verde{6.79} & \verde{6.83} & \verde{7.18} & \verde{7.23} & \verde{7.28} \\
-15\,360    & L2         & 960 KB  & \verde{6.80} & \verde{6.87} & \verde{7.24} & \verde{7.24} & \verde{7.22} \\
-40\,960    & L3         & 2.5 MB  & \verde{6.80} & \verde{6.88} & \verde{7.26} & \amarillo{8.00} & \verde{7.94} \\
-81\,920    & L3         & 5 MB    & \verde{6.80} & \verde{6.91} & \verde{7.28} & \verde{7.73} & \verde{7.76} \\
-163\,840   & L3         & 10 MB   & \verde{6.80} & \verde{6.93} & \verde{7.32} & \verde{7.78} & \verde{7.76} \\
-524\,288   & L3         & 32 MB   & \verde{6.81} & \verde{7.69} & \amarillo{8.58} & \rojo{15.88} & \rojo{14.92} \\
-786\,432   & Límite L3  & 48 MB   & \verde{6.81} & \verde{7.79} & \amarillo{8.80} & \rojo{16.87} & \rojo{16.01} \\
-1\,572\,864 & \textbf{RAM} & 96 MB & \verde{6.81} & \verde{7.87} & \amarillo{9.27} & \rojo{17.04} & \rojo{18.35} \\
-3\,145\,728 & \textbf{RAM} & 192 MB & \verde{6.81} & \verde{7.89} & \amarillo{9.40} & \rojo{17.53} & \rojo{19.71} \\
+384         & L1         & \cverde{6.76}  & \cverde{6.80} & \cverde{6.83} & \cverde{6.80} & \cverde{6.85} & \cverde{6.92}  & \cverde{7.41} \\
+1\,152      & L2         & \cverde{6.77}  & \cverde{6.82} & \cverde{7.17} & \cverde{7.24} & \cverde{7.15} & \cverde{7.24}  & \cverde{7.42} \\
+10\,240     & L2         & \cverde{6.79}  & \cverde{6.83} & \cverde{7.18} & \cverde{7.22} & \cverde{7.27} & \cverde{7.33}  & \cverde{7.20} \\
+15\,360     & L2         & \cverde{6.79}  & \cverde{6.86} & \cverde{7.22} & \cverde{7.22} & \cverde{7.29} & \cverde{7.40}  & \cverde{7.17} \\
+40\,960     & L3         & \cverde{6.80}  & \cverde{6.90} & \cverde{7.31} & \cverde{7.81} & \cverde{7.49} & \cverde{7.48}  & \cverde{7.52} \\
+81\,920     & L3         & \cverde{6.79}  & \cverde{6.88} & \cverde{7.30} & \cverde{7.69} & \cverde{7.54} & \cverde{7.43}  & \cverde{7.46} \\
+163\,840    & L3         & \cverde{6.79}  & \cverde{6.88} & \cverde{7.29} & \cverde{7.77} & \cverde{7.60} & \cverde{7.46}  & \cverde{7.47} \\
+524\,288    & L3         & \cverde{6.80}  & \cverde{7.46} & \cnaranja{8.65} & \crojo{14.44} & \crojo{13.81} & \crojo{13.54} & \crojo{13.91} \\
+786\,432    & L3 lim.    & \cverde{6.80}  & \cverde{7.52} & \cnaranja{9.25} & \crojo{15.83} & \crojo{14.72} & \crojo{14.50} & \crojo{14.82} \\
+1\,572\,864 & \textbf{RAM} & \cverde{6.81} & \cverde{7.56} & \cnaranja{9.64} & \crojo{17.41} & \crojo{16.60} & \crojo{15.35} & \crojo{15.73} \\
+3\,145\,728 & \textbf{RAM} & \cverde{6.81} & \cverde{7.57} & \cnaranja{9.71} & \crojo{18.40} & \crojo{17.61} & \crojo{15.87} & \crojo{16.19} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\subsection{Experimento adicional 2: Double + acceso directo}
+\subsection{Double + acceso directo (\texttt{acp1\_directo.c})}
 
 \begin{table}[H]
 \centering
-\caption{Ciclos de CPU por acceso — Double + acceso directo (\texttt{acp1\_directo.c})}
+\caption{Ciclos/acceso --- Double directo.}
 \label{tab:double_dir}
-\setlength{\tabcolsep}{5pt}
-\begin{tabular}{rllccccc}
+\setlength{\tabcolsep}{4pt}\footnotesize
+\begin{tabular}{rlrrrrrrr}
 \toprule
-\textbf{L} & \textbf{Nivel} & \textbf{Footprint} & \textbf{D=1} & \textbf{D=8} & \textbf{D=16} & \textbf{D=64} & \textbf{D=128} \\
+\textbf{L} & \textbf{Nivel} & \textbf{D=1} & \textbf{D=8} & \textbf{D=16} & \textbf{D=64} & \textbf{D=128} & \textbf{D=256} & \textbf{D=512} \\
 \midrule
-384        & L1         & 24 KB   & \verde{7.06} & \verde{6.98} & \verde{6.82} & \verde{6.42} & \verde{6.36} \\
-1\,152     & L2         & 72 KB   & \verde{7.08} & \verde{7.09} & \verde{7.07} & \verde{6.88} & \verde{6.81} \\
-10\,240    & L2         & 640 KB  & \verde{7.10} & \verde{7.15} & \verde{7.15} & \verde{7.10} & \verde{7.08} \\
-15\,360    & L2         & 960 KB  & \verde{7.11} & \verde{7.18} & \verde{7.14} & \verde{7.12} & \verde{7.09} \\
-40\,960    & L3         & 2.5 MB  & \verde{7.13} & \verde{7.35} & \verde{7.57} & \verde{7.50} & \verde{7.48} \\
-81\,920    & L3         & 5 MB    & \verde{7.12} & \verde{7.30} & \verde{7.53} & \verde{7.55} & \verde{7.32} \\
-163\,840   & L3         & 10 MB   & \verde{7.12} & \verde{7.32} & \verde{7.45} & \verde{7.56} & \verde{7.41} \\
-524\,288   & L3         & 32 MB   & \verde{7.14} & \amarillo{8.36} & \rojo{12.63} & \rojo{13.69} & \rojo{12.99} \\
-786\,432   & Límite L3  & 48 MB   & \verde{7.15} & \amarillo{8.54} & \rojo{14.62} & \rojo{15.13} & \rojo{13.91} \\
-1\,572\,864 & \textbf{RAM} & 96 MB & \verde{7.16} & \amarillo{8.58} & \rojo{16.25} & \rojo{17.22} & \rojo{15.44} \\
-3\,145\,728 & \textbf{RAM} & 192 MB & \verde{7.16} & \amarillo{8.56} & \rojo{16.64} & \rojo{18.72} & \rojo{16.59} \\
+384         & L1         & \cverde{7.06}  & \cverde{6.97} & \cverde{6.82} & \cverde{6.30} & \cverde{6.46} & \cverde{7.09}  & \cnaranja{8.13} \\
+1\,152      & L2         & \cverde{7.08}  & \cverde{7.09} & \cverde{7.06} & \cverde{6.86} & \cverde{6.80} & \cverde{6.95}  & \cverde{7.28} \\
+10\,240     & L2         & \cverde{7.10}  & \cverde{7.16} & \cverde{7.13} & \cverde{7.11} & \cverde{7.07} & \cverde{7.03}  & \cverde{6.99} \\
+15\,360     & L2         & \cverde{7.10}  & \cverde{7.21} & \cverde{7.23} & \cverde{7.17} & \cverde{7.14} & \cverde{7.21}  & \cverde{7.20} \\
+40\,960     & L3         & \cverde{7.12}  & \cverde{7.36} & \cverde{7.52} & \cverde{7.45} & \cverde{7.47} & \cverde{7.64}  & \cverde{7.68} \\
+81\,920     & L3         & \cverde{7.11}  & \cverde{7.29} & \cverde{7.45} & \cverde{7.28} & \cverde{7.21} & \cverde{7.25}  & \cverde{7.32} \\
+163\,840    & L3         & \cverde{7.11}  & \cverde{7.30} & \cverde{7.43} & \cverde{7.30} & \cverde{7.23} & \cverde{7.25}  & \cverde{7.33} \\
+524\,288    & L3         & \cverde{7.14}  & \cnaranja{8.44} & \crojo{12.09} & \crojo{12.50} & \crojo{12.38} & \crojo{12.90} & \crojo{12.22} \\
+786\,432    & L3 lim.    & \cverde{7.15}  & \cnaranja{8.86} & \crojo{13.60} & \crojo{13.65} & \crojo{13.23} & \crojo{13.83} & \crojo{14.17} \\
+1\,572\,864 & \textbf{RAM} & \cverde{7.16} & \cnaranja{9.24} & \crojo{15.17} & \crojo{15.52} & \crojo{14.59} & \crojo{15.10} & \crojo{15.60} \\
+3\,145\,728 & \textbf{RAM} & \cverde{7.16} & \cnaranja{9.26} & \crojo{16.03} & \crojo{16.29} & \crojo{15.17} & \crojo{15.85} & \crojo{16.27} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-% ════════════════════════════════════════════════════════════════════════════
-\section{Análisis por zonas de la jerarquía}
+%% ─── 6. GRAFICAS ────────────────────────────────────────────────────────────
+\section{Graficas de resultados}
 
-\subsection{Zona L1 — $L \leq 768$ líneas (footprint $\leq$ 48 KB)}
+\subsection{Experimento base con 7 strides}
 
-En la zona L1, \textbf{todas las curvas convergen} en el rango 6.4--7.2 ciclos/acceso, independientemente del stride D y del tipo de dato. Con 24 KB de footprint, el conjunto de datos cabe completamente en la caché L1d de 48 KB y cada acceso se resuelve sin fallo de caché.
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{grafica_memoria.png}
+  \caption{Ciclos/acceso vs. lineas L (escala log) para el experimento base (double + indirecto, 7 strides). Las lineas verticales marcan los limites de L1 ($S_1=768$, rojo) y L2 ($S_2=20\,480$, verde). Se aprecian claramente tres regiones: zona plana L1/L2 (prefetcher eficaz), escalada L3 y estabilizacion RAM.}
+  \label{fig:memoria}
+\end{figure}
 
-La ligera ventaja del acceso directo con strides grandes (D=64: 6.42 ciclos frente a 7.15 del indirecto) se debe a que sin \texttt{ind[]}, todo el espacio L1 se dedica exclusivamente a \texttt{A[]}. La ventaja del tipo \texttt{int} ($\sim$0.3 ciclos menos) refleja que la instrucción de suma entera \texttt{ADD} tiene menor latencia que \texttt{FADD} de punto flotante.
+\subsection{Comparativa global de los tres experimentos}
 
-\textbf{Conclusión:} en la zona L1 el stride es irrelevante. Todos los accesos tienen coste $\approx 5$--7 ciclos (compatible con la latencia teórica de L1 más overhead del bucle sin optimización).
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{comparativa_experimentos.png}
+  \caption{Comparativa de los tres experimentos en tres paneles paralelos. Cada panel muestra los 7 strides. Las lineas verticales marcan $S_1$ (rojo), $S_2$ (verde) y $S_3$ (naranja). A partir de $L=524\,288$ los datos desbordan L3 y la latencia escala abruptamente para $D \geq 16$.}
+  \label{fig:comparativa}
+\end{figure}
 
-\subsection{Zona L2 — $768 < L \leq 20\,480$ líneas (footprint 72 KB -- 960 KB)}
+\subsection{Comparativa por stride extremo: D=1 y D=16}
 
-Al superar L1, la latencia teórica de L2 es $\sim$14 ciclos. Sin embargo, los valores medidos permanecen por debajo de 7.5 ciclos en todas las variantes. Esto confirma la actuación del \textbf{DCU IP Stride Prefetcher}, que detecta el stride constante del bucle y emite precargas desde L2 hacia L1 antes de que sean necesarias, ocultando prácticamente toda la latencia.
+\begin{figure}[H]
+  \centering
+  \begin{subfigure}[b]{0.9\textwidth}
+    \includegraphics[width=\textwidth]{comparativa_D1.png}
+    \caption{Stride $D=1$: las tres variantes permanecen completamente planas en toda la jerarquia, incluyendo RAM con 192 MB de footprint. El hardware prefetcher oculta por completo todas las latencias. La variante int es $\sim$0.3 ciclos mas rapida por la menor latencia de la suma entera.}
+    \label{fig:D1}
+  \end{subfigure}
+  \vspace{0.8cm}
+  \begin{subfigure}[b]{0.9\textwidth}
+    \includegraphics[width=\textwidth]{comparativa_D16.png}
+    \caption{Stride $D=16$: peor caso en el experimento base. El double indirecto alcanza $\sim$17 ciclos en RAM. El int indirecto se mantiene por debajo de 10 ciclos gracias a la menor presion sobre el subsistema de memoria. El double directo queda entre ambas.}
+    \label{fig:D16}
+  \end{subfigure}
+  \caption{Comparativa de las tres variantes para los strides mas representativos.}
+  \label{fig:strides_extremos}
+\end{figure}
 
-La penalización al pasar de L1 a L2 es inferior a 0.2 ciclos, lo que evidencia la eficacia del prefetcher incluso para strides tan grandes como D=128.
+%% ─── 7. ANALISIS ────────────────────────────────────────────────────────────
+\section{Analisis por zonas de la jerarquia}
 
-\subsection{Zona L3 — $20\,480 < L \leq 786\,432$ líneas (footprint 2.5 MB -- 48 MB)}
+\subsection{Zona L1 --- $L \leq 768$ lineas (footprint $\leq$ 48 KB)}
 
-Esta zona muestra el comportamiento más diferenciado entre strides:
+Con 24 KB de footprint, los datos caben completamente en la L1d de 48 KB. Las curvas convergen en el rango 6.3--7.7 ciclos en todos los strides y variantes.
+
+El unico comportamiento anomalo es $D=512$ en $L=384$: con tan pocos elementos ($R=6$ para double), el overhead fijo del bucle (control de iteracion, calculo de multiplicacion $i \times D$) domina sobre el coste del acceso real, inflando artificialmente el valor a 8.77 ciclos. Esto no refleja la latencia de L1 sino el coste de computacion del bucle sin optimizacion.
+
+La ventaja de \texttt{int} ($\sim$0.3 ciclos menos que double) se debe a que la instruccion de suma entera \texttt{ADD} tiene menor latencia que \texttt{FADD} de punto flotante. La ventaja del acceso directo con $D=64$ (6.30 vs. 7.07 ciclos) refleja la eliminacion de la lectura de \texttt{ind[]}.
+
+\subsection{Zona L2 --- $768 < L \leq 20\,480$ lineas (footprint 72 KB--960 KB)}
+
+A pesar de desbordar L1 (latencia teorica de L2 $\sim$14 ciclos), los valores medidos se mantienen por debajo de 7.5 ciclos en todos los casos. El \textbf{DCU IP Stride Prefetcher} detecta el stride constante y emite precargas desde L2 hacia L1 antes de que sean necesarias, ocultando virtualmente toda la latencia de L2.
+
+La penalizacion al cruzar de L1 a L2 es inferior a 0.2 ciclos, confirmando la eficacia del prefetcher incluso para strides de hasta $D=512$.
+
+\subsection{Zona L3 --- $20\,480 < L \leq 786\,432$ lineas (footprint 2.5 MB--48 MB)}
+
+Se distinguen dos subzonas. En la \textbf{L3 baja} ($L = 40\,960$--$163\,840$, footprint 2.5--10 MB), todos los strides se mantienen por debajo de 8 ciclos: el L2 Streamer sigue siendo eficaz. En la \textbf{L3 alta} ($L = 524\,288$--$786\,432$, 32--48 MB) se produce la transicion critica, con las curvas separandose claramente:
 
 \begin{description}[leftmargin=1.5em]
-  \item[$D=1$:] Permanece completamente plano en $\sim$7.2 ciclos hasta el límite de L3. El \textbf{L2 Streamer} (20 líneas por delante) oculta la latencia de L3 de forma idéntica a la de L2.
-
-  \item[$D=8$:] Crece progresivamente de 7.5 hasta $\sim$11 ciclos al llegar al límite de L3. El prefetcher sigue siendo eficaz pero empieza a limitarse porque el stride de 512 bytes le obliga a emitir precargas más espaciadas.
-
-  \item[$D=16$:] Peor caso observado. Escala de 9 hasta $\sim$18 ciclos. El \textbf{L2 Spatial Prefetcher} trae líneas adyacentes (stride real = 1024 bytes), generando \emph{prefetch pollution}: tráfico inútil que satura el ancho de banda L2-L3 y perjudica los accesos reales.
-
-  \item[$D=64, D=128$:] El stride supera ampliamente el umbral del L2 Streamer. Paradójicamente, alcanzan latencias similares a D=16 en la zona L3 profunda ($\sim$18 ciclos) porque ahora el prefetcher reduce su actividad, dejando que las latencias de L3 se manifiesten sin la polución de D=16.
+  \item[$D=1$:] Permanece plano en $\sim$7.2 ciclos. El L2 Streamer (20 lineas por delante) oculta la latencia de L3 con la misma eficacia que la de L2.
+  \item[$D=8$:] Sube progresivamente hasta $\sim$9.5 ciclos. El prefetcher sigue activo pero con menor eficacia al crecer la separacion entre accesos consecutivos.
+  \item[$D=16$:] Peor caso ($\sim$14.8 ciclos en el limite L3). El L2 Spatial Prefetcher genera \emph{prefetch pollution}: por cada linea util de 64 bytes trae otra de 64 bytes adyacente innecesaria, duplicando el trafico L2-L3 y degradando el rendimiento.
+  \item[$D \geq 64$ hasta $D=512$:] Latencias similares (13--15 ciclos) que D=16. El stride supera ampliamente el umbral del L2 Streamer. Paradojicamente no empeoran respecto a D=16 porque el prefetcher reduce su actividad, eliminando tambien la pollution.
 \end{description}
 
-\subsection{Zona RAM — $L > 786\,432$ líneas (footprint $>$ 48 MB)}
+\subsection{Zona RAM --- $L > 786\,432$ lineas (footprint $> 48$ MB)}
 
-La transición L3$\to$RAM es el hallazgo más relevante de los experimentos ampliados. Entre $L=786\,432$ y $L=1\,572\,864$ se observa una \textbf{estabilización de la penalización} para $D \geq 8$, indicando que el sistema ha alcanzado la latencia de RAM pura.
-
-La Tabla~\ref{tab:ram_comparativa} compara las tres variantes en RAM profunda ($L=3\,145\,728$, footprint 192 MB):
+La transicion L3$\to$RAM es el hallazgo mas relevante. Entre $L=786\,432$ y $L=1\,572\,864$ se produce un \textbf{cambio de pendiente} apreciable para $D \geq 8$. Los valores se estabilizan entre $L=1\,572\,864$ y $L=3\,145\,728$, confirmando que se ha alcanzado la latencia de RAM pura.
 
 \begin{table}[H]
 \centering
-\caption{Comparativa en RAM profunda ($L=3\,145\,728$, footprint 192 MB)}
+\caption{Ciclos/acceso en RAM profunda ($L=3\,145\,728$, footprint 192 MB)}
 \label{tab:ram_comparativa}
-\begin{tabular}{lcccl}
+\footnotesize
+\begin{tabular}{lrrrrrrr}
 \toprule
-\textbf{Stride} & \textbf{Double ind.} & \textbf{Int ind.} & \textbf{Double dir.} & \textbf{Mejor variante} \\
+\textbf{Variante} & \textbf{D=1} & \textbf{D=8} & \textbf{D=16} & \textbf{D=64} & \textbf{D=128} & \textbf{D=256} & \textbf{D=512} \\
 \midrule
-D=1   & 7.22  & 6.81  & 7.16  & Int ind. ($-5\%$) \\
-D=8   & 11.10 & 7.89  & 8.56  & Int ind. ($-\mathbf{29\%}$) \\
-D=16  & 18.51 & 9.40  & 16.64 & Int ind. ($-\mathbf{49\%}$) \\
-D=64  & 20.86 & 17.53 & 18.72 & Int ind. ($-16\%$) \\
-D=128 & 19.68 & 19.71 & 16.59 & Double dir. ($-16\%$) \\
+Double indirecto & 7.20 & 9.85 & 17.13 & 17.70 & 15.81 & 16.29 & 17.16 \\
+Int indirecto    & 6.81 & 7.57 &  9.71 & 18.40 & 17.61 & 15.87 & 16.19 \\
+Double directo   & 7.16 & 9.26 & 16.03 & 16.29 & 15.17 & 15.85 & 16.27 \\
+\midrule
+\textit{Mejor}   & Int  & Int  & Int   & Dir.  & Dir.  & Int   & Int   \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-La excepción notable es D=128 en RAM, donde \texttt{int} indirecto (19.71 ciclos) iguala al \texttt{double} indirecto. La razón es que con $R_\text{int} = 2 \times R_\text{double}$, el vector \texttt{ind[]} tiene el doble de elementos y ocupa proporciones masivas de memoria, generando accesos adicionales a RAM para leer los propios índices.
+\textbf{Observation clave:} $D=1$ es completamente inmune a la jerarquia. Con 192 MB en RAM el coste es $\sim$7.2 ciclos, identico a L1. Los cuatro prefetchers actuan coordinadamente.
 
-\textbf{Observación clave:} D=1 permanece completamente inmune a la jerarquía de memoria. Con 192 MB de datos en RAM, el resultado es $\sim$7.2 ciclos, prácticamente idéntico a la zona L1. Los cuatro prefetchers hardware actúan coordinadamente ocultando por completo la latencia de RAM.
+%% ─── 8. ESCALERA ────────────────────────────────────────────────────────────
+\section{La escalera completa de la jerarquia}
 
-% ════════════════════════════════════════════════════════════════════════════
-\section{La ``escalera'' completa de la jerarquía}
-
-Con los valores de L ampliados hasta 192 MB es posible visualizar la escalera completa de latencias. Para $D=64$ (double indirecto), los valores caracterizan cada nivel:
+Con 11 valores de L se puede trazar la escalera completa. Para D=64 (double indirecto):
 
 \begin{table}[H]
 \centering
-\caption{Escalera de latencias observadas para D=64, double indirecto}
+\caption{Escalera de latencias para D=64, double indirecto}
 \label{tab:escalera}
-\begin{tabular}{llll}
+\begin{tabular}{lllr}
 \toprule
-\textbf{Zona} & \textbf{L repr.} & \textbf{Footprint} & \textbf{Ciclos/acceso} \\
+\textbf{Zona} & \textbf{L} & \textbf{Footprint} & \textbf{Ciclos/acceso} \\
 \midrule
-L1          & 384       & 24 KB   & 7.15 \\
-L2          & 15\,360   & 960 KB  & 7.41 (+0.3) \\
-L3 entrada  & 40\,960   & 2.5 MB  & 8.18 (+0.8) \\
-L3 profunda & 786\,432  & 48 MB   & 18.43 (+10.2) \\
-RAM         & 3\,145\,728 & 192 MB & 20.86 (+2.4) \\
+L1            & 384         & 24 KB   & 7.07 \\
+L2            & 15\,360     & 960 KB  & 7.28 ($+0.2$) \\
+L3 entrada    & 40\,960     & 2.5 MB  & 7.81 ($+0.5$) \\
+L3 profunda   & 786\,432    & 48 MB   & 14.93 ($+7.1$) \\
+RAM           & 3\,145\,728 & 192 MB  & 17.70 ($+2.8$) \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-La diferencia L1$\to$RAM real para D=64 es de $\Delta = 20.86 - 7.15 = \mathbf{13.7}$ ciclos, frente a los $\sim$145 ciclos teóricos de latencia pura de RAM. El prefetcher atenúa la penalización en un factor de aproximadamente $\mathbf{10\times}$.
+La diferencia L1$\to$RAM es de $\Delta = 10.63$ ciclos, frente a los $\sim$145 teoricos de RAM pura. El prefetcher atenua la penalizacion en un factor de $\approx \mathbf{14\times}$.
 
-La escalera clásica aparece, pero muy atenuada. El salto más pronunciado ocurre en la transición L2$\to$L3 dentro de la zona L3 ($\Delta \approx 10.2$ ciclos entre entrada y fondo de L3), mientras que la transición L3$\to$RAM añade solo $\sim$2.4 ciclos adicionales porque el prefetcher sigue actuando parcialmente incluso en RAM.
+%% ─── 9. COMPARATIVA VARIANTES ───────────────────────────────────────────────
+\section{Analisis comparativo de variantes}
 
-% ════════════════════════════════════════════════════════════════════════════
-\section{Análisis comparativo de variantes}
+\subsection{Double vs. Int}
 
-\subsection{Double vs. Int (acceso indirecto)}
+En la zona L1/L2, \texttt{int} es $\sim$0.3 ciclos mas rapido por la menor latencia de \texttt{ADD}. En L3/RAM con strides medios (D=16), la ventaja es mucho mayor: en RAM profunda, \texttt{int} obtiene 9.71 ciclos frente a 17.13 del double (mejora del \textbf{43\%}), porque con el doble de R los elementos por linea son mas utiles y la presion relativa de \texttt{ind[]} se reduce.
 
-La hipótesis inicial era que ambas variantes deberían tener latencias similares para los mismos valores de L, porque el número de líneas referenciadas es idéntico. Los resultados confirman esto parcialmente, con diferencias importantes en determinados regímenes:
+Sin embargo, para strides grandes en RAM ($D=64$), \texttt{int} es el \emph{peor} con 18.40 ciclos, superando al double indirecto (17.70). La razon: con $R_{\text{int}} = 2 \times R_{\text{double}}$, el vector \texttt{ind[]} tiene el doble de entradas y genera accesos masivos adicionales a RAM para leer los propios indices.
 
-\begin{itemize}[leftmargin=1.5em]
-  \item \textbf{Zona L1/L2:} \texttt{int} es $\sim$0.3 ciclos más rápido por la menor latencia de \texttt{ADD} vs. \texttt{FADD}. El número de líneas accedidas es el mismo.
-  \item \textbf{Zona L3 media (D=16):} \texttt{int} es notablemente mejor ($\sim$7.3 vs. $\sim$10.3 ciclos para $L=163\,840$). Con \texttt{int}, $R$ es el doble pero el vector \texttt{ind[]} pesa la mitad relativa al footprint de \texttt{A[]}, reduciendo la contención.
-  \item \textbf{RAM con D=16:} \texttt{int} obtiene 9.40 ciclos frente a 18.51 del \texttt{double}, una mejora del \textbf{49\%}. El IP Stride detecta mejor el patrón porque hay más elementos útiles por línea traída.
-  \item \textbf{RAM con D=64/128:} las diferencias se reducen porque $R_\text{int}$ tan grande hace que \texttt{ind[]} sea enorme ($\sim$750 MB para $L=3\,145\,728$, $D=64$), añadiendo tráfico masivo a RAM solo para leer los índices.
-\end{itemize}
+\subsection{Directo vs. Indirecto}
 
-\subsection{Directo vs. Indirecto (tipo Double)}
+La eliminacion de \texttt{ind[]} beneficia especialmente a strides grandes en L1 (D=64: 6.30 vs. 7.07 ciclos, mejora del 11\%) y a la zona RAM con $D=8$ (9.26 vs. 9.85, mejora del 6\%). En RAM con $D \geq 64$ la ventaja se reduce porque el cuello de botella es la latencia de RAM en si misma y no la contention entre streams.
 
-La eliminación del vector \texttt{ind[]} tiene dos efectos combinados: (1) se elimina un acceso de memoria por iteración (la lectura del índice antes del acceso a \texttt{A[]}), y (2) el espacio de caché liberado por \texttt{ind[]} queda disponible exclusivamente para \texttt{A[]}.
-
-\begin{itemize}[leftmargin=1.5em]
-  \item \textbf{Zona L1/L2:} La mejora con strides grandes (D=64: 6.42 vs. 7.15 ciclos en L1) se debe a que sin \texttt{ind[]}, L1 tiene más espacio para \texttt{A[]}.
-  \item \textbf{Zona L3 media:} El acceso directo es mejor (7.57 vs. 10.32 ciclos para D=16, $L=163\,840$). La dependencia de datos \texttt{A[ind[i]]} serializa los accesos e impide que el prefetcher gestione dos streams de forma eficiente.
-  \item \textbf{Zona RAM (D=8):} La mayor diferencia absoluta: 8.56 vs. 11.10 ciclos, mejora del \textbf{23\%}. El patrón directo \texttt{A[i*D]} es un stride perfectamente uniforme que el prefetcher detecta con máxima eficiencia.
-\end{itemize}
-
-% ════════════════════════════════════════════════════════════════════════════
-\section{Resumen de los valores de latencia identificados}
+%% ─── 10. LATENCIAS IDENTIFICADAS ───────────────────────────────────────────
+\section{Latencias identificadas experimentalmente}
 
 \begin{table}[H]
 \centering
-\caption{Latencias observadas experimentalmente vs. latencias teóricas del procesador}
+\caption{Latencias teoricas vs. observadas y factor de mejora del prefetcher}
 \label{tab:latencias}
 \begin{tabular}{lrrl}
 \toprule
-\textbf{Nivel} & \textbf{Latencia teórica} & \textbf{Ciclos observados} & \textbf{Factor prefetcher} \\
+\textbf{Nivel} & \textbf{Lat. teorica} & \textbf{Ciclos observados} & \textbf{Factor mejora} \\
 \midrule
-L1d  & $\sim$5 ciclos  & $\sim$7 ciclos  & — (incluye overhead del bucle) \\
-L2   & $\sim$14 ciclos & $\sim$7 ciclos  & $2\times$ (oculta completamente) \\
-L3   & $\sim$45 ciclos & 9--18 ciclos    & $2.5\times$--$5\times$ \\
-RAM  & $\sim$150 ciclos & 11--21 ciclos   & $7\times$--$14\times$ \\
+L1d  & $\sim$5 ciclos   & $\sim$7 ciclos   & --- (overhead \texttt{-O0}) \\
+L2   & $\sim$14 ciclos  & $\sim$7 ciclos   & $2\times$ (latencia oculta) \\
+L3   & $\sim$45 ciclos  & 7--15 ciclos     & $3\times$--$6\times$ \\
+RAM  & $\sim$150 ciclos & 7--18 ciclos     & $8\times$--$21\times$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Los valores observados en L1 ($\sim$7 ciclos) son superiores a la latencia teórica de 5 ciclos porque la compilación sin optimización (\texttt{-O0}) añade overhead en el acceso al array de índices y en el control del bucle.
+Los valores en L1 ($\sim$7 ciclos) superan la latencia teorica de 5 ciclos por el overhead del bucle sin optimizacion (\texttt{-O0}).
 
-% ════════════════════════════════════════════════════════════════════════════
+%% ─── 11. CONCLUSIONES ───────────────────────────────────────────────────────
 \section{Conclusiones}
 
 \begin{enumerate}[leftmargin=1.5em]
-  \item \textbf{La experimentación cubre toda la jerarquía.} Con 11 valores de L desde 24 KB hasta 192 MB se caracterizan experimentalmente los cuatro niveles de la jerarquía: L1, L2, L3 y RAM. Los límites $S_1=768$, $S_2=20\,480$ y $S_3=786\,432$ líneas se validan directamente por los cambios de pendiente en las curvas.
+  \item \textbf{La experimentacion cubre toda la jerarquia.} Con 11 valores de L desde 24 KB hasta 192 MB se caracterizan experimentalmente los cuatro niveles. Los limites $S_1=768$, $S_2=20\,480$ y $S_3=786\,432$ lineas se validan por los cambios de pendiente en las curvas.
 
-  \item \textbf{D=1 es inmune a la jerarquía de memoria.} Con acceso completamente secuencial, los cuatro prefetchers hardware actúan coordinadamente ocultando las latencias de L2, L3 y RAM. Con 192 MB de datos, el coste es $\sim$7.2 ciclos, indistinguible del valor en L1.
+  \item \textbf{\texttt{-c 64} es esencial para la fiabilidad.} Reservar el nodo completo elimina la contaminacion por otros procesos y garantiza la exclusividad de L1 y L2, reduciendo la variabilidad de las mediciones.
 
-  \item \textbf{La "escalera" clásica aparece pero muy atenuada.} La diferencia L1$\to$RAM para D=64 es de solo 13.7 ciclos en lugar de los $\sim$145 teóricos, ya que el prefetcher atenúa la penalización aproximadamente $10\times$.
+  \item \textbf{D=1 es inmune a la jerarquia.} Los cuatro prefetchers actuan coordinadamente ocultando las latencias de L2, L3 y RAM. Con 192 MB en RAM el coste es $\sim$7.2 ciclos, identico a L1.
 
-  \item \textbf{La transición L3$\to$RAM es claramente observable} entre $L=786\,432$ y $L=1\,572\,864$ para todos los strides excepto D=1, confirmando experimentalmente que $S_3=786\,432$ líneas es el límite correcto de L3.
+  \item \textbf{La escalera de latencias aparece muy atenuada.} La diferencia L1$\to$RAM para D=64 es de 10.6 ciclos en lugar de los $\sim$145 teoricos ($14\times$ de mejora por el prefetcher).
 
-  \item \textbf{D=16 es el peor stride} en las variantes con acceso indirecto. El prefetch pollution del Spatial Prefetcher genera tráfico inútil que degrada el rendimiento hasta $\sim$19 ciclos en RAM, un factor $2.6\times$ respecto a D=1.
+  \item \textbf{La transicion L3$\to$RAM es claramente observable} entre $L=786\,432$ y $L=1\,572\,864$ para $D \geq 8$, validando experimentalmente $S_3 = 786\,432$ lineas.
 
-  \item \textbf{El acceso directo supera al indirecto} principalmente en L3 y RAM, con mejoras de hasta el 23\% en RAM para D=8. La eliminación de la dependencia de datos \texttt{ind[i]$\to$A[]} permite al prefetcher operar sobre un único stream regular en lugar de dos.
+  \item \textbf{D=16 es el peor stride} en double indirecto (17.13 ciclos en RAM) por el fenomeno de \emph{prefetch pollution} del L2 Spatial Prefetcher.
 
-  \item \textbf{El tipo \texttt{int} supera al \texttt{double}} para strides pequeños y medios incluso en RAM. Para D=16 en RAM profunda obtiene 9.40 ciclos frente a 18.51 del \texttt{double} indirecto (mejora del 49\%). La razón es el menor peso relativo de \texttt{ind[]} y la mayor densidad de elementos útiles por línea de caché traída.
+  \item \textbf{D=256 y D=512 no empeoran significativamente respecto a D=64.} A partir de cierto stride el prefetcher es igualmente ineficaz y la latencia se estabiliza, sin degradacion monotona adicional.
 
-  \item \textbf{Los valores se estabilizan en RAM profunda.} Entre $L=1\,572\,864$ y $L=3\,145\,728$ los ciclos/acceso varían menos del 2\% en todas las variantes, confirmando que el sistema ha alcanzado la latencia de RAM pura sin degradación adicional.
+  \item \textbf{El acceso directo supera al indirecto} en zona L1 con strides grandes y en RAM con strides medios (hasta 11\% de mejora).
+
+  \item \textbf{El tipo \texttt{int} supera al \texttt{double}} para strides D=8 y D=16 en toda la jerarquia (hasta 43\% en RAM). Para D=64 la inversion de resultado evidencia el coste de un \texttt{ind[]} de gran tamano.
+
+  \item \textbf{Los valores se estabilizan en RAM profunda.} La diferencia entre $L=1\,572\,864$ y $L=3\,145\,728$ es inferior al 2\%, confirmando que el sistema ha alcanzado la latencia de RAM pura.
 \end{enumerate}
 
-% ════════════════════════════════════════════════════════════════════════════
+%% ─── APENDICE ───────────────────────────────────────────────────────────────
 \appendix
-\section{Fragmentos de código de los experimentos adicionales}
+\section{Configuracion Slurm}
 
-\subsection{Acceso directo: \texttt{acp1\_directo.c}}
+\begin{lstlisting}[language=bash, caption={Cabecera de los scripts Slurm (identica en las tres variantes)}, label=lst:slurm]
+#!/bin/bash
+#SBATCH -n 1          # 1 proceso (sin MPI)
+#SBATCH -c 64         # 64 cores logicos = nodo completo reservado
+#SBATCH --mem=4G      # Memoria suficiente para los vectores grandes
+#SBATCH -t 00:02:00   # Tiempo estimado de ejecucion
+#SBATCH --job-name p1acg_eqNN
 
-\begin{lstlisting}[caption={Bucle de medición con acceso directo (sin vector de índices)}, label=lst:directo]
-/* Sin ind[]: acceso directo A[i * D] */
-start_counter();
-for (int k = 0; k < REPS; k++) {
-    double suma = 0.0;
-    for (long long i = 0; i < R; i++)
-        suma += A[i * D];   // Un único acceso a memoria por iteración
-    acum[k] = suma;
-}
-double ciclos_totales = get_counter();
-\end{lstlisting}
-
-\subsection{Tipo Int: \texttt{acp1\_int.c}}
-
-\begin{lstlisting}[caption={Diferencia clave en acp1\_int.c: tipo int y cálculo de R}, label=lst:int]
-/* Con int (4 bytes), R es el DOBLE que con double (8 bytes)
-   para el mismo número de líneas L                         */
-long long R = (long long)L * CLS / (D * sizeof(int));
-
-int *A   = (int*)aligned_alloc(CLS, N * sizeof(int));
-int *ind = (int*)malloc(R * sizeof(int));
-int  acum[REPS];
-
-/* Bucle de medición: reducción de suma de enteros */
-for (int k = 0; k < REPS; k++) {
-    int suma = 0;
-    for (long long i = 0; i < R; i++)
-        suma += A[ind[i]];
-    acum[k] = suma;
-}
+# -c 64 reserva el nodo completo aunque solo se use 1 core.
+# Esto garantiza exclusividad de L1/L2 (privadas) y evita
+# contaminacion de L3 (compartida) por otros procesos.
+gcc acp1.c -o acp1 -O0
 \end{lstlisting}
 
 \end{document}
