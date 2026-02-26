@@ -249,3 +249,5 @@ def procesar_experimento(archivo):
     # Media geométrica
     return np.prod(top3) ** (1/3)
 ```
+
+

@@ -67,8 +67,9 @@ print(df.pivot(index='L', columns='D', values='Ciclos'))
 plt.figure(figsize=(12, 7))
 
 # Valores teóricos FinisTerrae III (para dibujar líneas verticales)
-S1 = 768
-S2 = 20480
+S1 = 768       # líneas L1d (48 KB / 64 B)
+S2 = 20480     # líneas L2  (1.25 MB / 64 B)
+S3 = 786432    # líneas L3  (48 MB / 64 B)  <-- NUEVO L3
 
 for d_val in sorted(df['D'].unique()):
     subset = df[df['D'] == d_val]
@@ -80,13 +81,18 @@ plt.xlabel('Número de Líneas (L) - Escala Log')
 plt.ylabel('Ciclos de CPU por Acceso')
 plt.title('Jerarquía de Memoria: Intel Ice Lake (FinisTerrae III)')
 plt.grid(True, which="both", ls="-", alpha=0.3)
-plt.legend()
 
 # Marcar zonas de caché
 plt.axvline(x=S1, color='r', linestyle='--', alpha=0.5, label='Límite L1')
 plt.axvline(x=S2, color='g', linestyle='--', alpha=0.5, label='Límite L2')
+plt.axvline(x=S3, color='orange', linestyle='--', alpha=0.5, label='Límite L3') 
+
 plt.text(S1, plt.ylim()[1]*0.9, ' L1', color='r')
 plt.text(S2, plt.ylim()[1]*0.9, ' L2', color='g')
+plt.text(S3, plt.ylim()[1]*0.9, ' L3', color='orange') # <-- NUEVO L3
+
+# La leyenda se llama AL FINAL para que recoja las líneas L1, L2 y L3
+plt.legend()
 
 plt.savefig('grafica_memoria.png')
 print("\nGráfica guardada como 'grafica_memoria.png'")
