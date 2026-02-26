@@ -2,7 +2,7 @@
 #SBATCH -n 1
 #SBATCH -c 64
 #SBATCH --mem=4G
-#SBATCH -t 00:01:00
+#SBATCH -t 00:02:00
 #SBATCH --job-name p1acg_eqNN
 
 # ============================================================
