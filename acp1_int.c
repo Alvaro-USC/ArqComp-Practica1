@@ -65,7 +65,7 @@ int main(int argc, char *argv[]) {
         A[ind[i]] = val;
     }
 
-    /* --- SECCIÓN CRÍTICA DE MEDICIÓN --- */
+    /* MEDICIÓN */
     start_counter();
 
     for (int k = 0; k < REPS; k++) {
@@ -78,7 +78,6 @@ int main(int argc, char *argv[]) {
     }
 
     double ciclos_totales = get_counter();
-    /* ------------------------------------ */
 
     /* Ciclos medios por acceso sobre las 10 repeticiones × R accesos */
     double ciclos_por_acceso = ciclos_totales / ((double)R * REPS);

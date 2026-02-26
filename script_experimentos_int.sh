@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH -n 1
 #SBATCH -c 1
-#SBATCH --mem=16G
-#SBATCH -t 02:00:00
+#SBATCH --mem=4G
+#SBATCH -t 00:01:00
 #SBATCH --job-name p1acg_int
 
 # ============================================================
@@ -49,7 +49,7 @@ Val_L10=1572864 # 2.0 × S3 → 96 MB  → RAM real
 Val_L11=3145728 # 4.0 × S3 → 192 MB → RAM profunda
 
 # --- Strides (sin cambios) ---
-STRIDES="1 8 16 64 128"
+STRIDES="1 8 16 64 128 256 512"
 
 # --- Lista completa de L ---                              ← CAMBIADO
 LINES="$Val_L1 $Val_L2 $Val_L3 $Val_L4 $Val_L5 $Val_L6 $Val_L7 $Val_L8 $Val_L9 $Val_L10 $Val_L11"

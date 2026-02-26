@@ -42,7 +42,7 @@ int main(int argc, char *argv[]) {
     srand(time(NULL));
     for (long long i = 0; i < R; i++) A[ind[i]] = (double)rand() / RAND_MAX;
 
-    // --- SECCIÓN CRÍTICA DE MEDICIÓN ---
+    // MEDICIÓN
     start_counter();
     
     for (int k = 0; k < REPS; k++) {
