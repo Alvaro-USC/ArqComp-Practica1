@@ -1,13 +1,21 @@
 /*
  * acp1.c - Medición de latencia de memoria
  * Compilar: gcc acp1.c -o acp1 -O0
+ *
+ * Parámetros:
+ *   D: stride (distancia entre elementos accedidos, en número de doubles)
+ *   L: número de líneas de caché distintas que se referencian
+ *
+ * El programa calcula R (elementos a sumar) a partir de L y D, reserva
+ * memoria alineada a 64 bytes, realiza 10 repeticiones de una reducción
+ * de suma con acceso indirecto A[ind[i]], y mide los ciclos totales.
  */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 #include <stdint.h>
-#include "counter.h" // Tu librería de contador
+#include "counter.h"
 
 int main(int argc, char *argv[]) {
     if (argc != 3) {
@@ -18,53 +26,71 @@ int main(int argc, char *argv[]) {
     int D = atoi(argv[1]);
     int L = atoi(argv[2]);
 
-    const int CLS = 64;          // Cache Line Size
-    const int REPS = 10;         // Repeticiones internas para estabilizar medición
+    const int CLS = 64;   /* Tamaño de línea de caché en bytes */
+    const int REPS = 10;  /* Repeticiones de la reducción (media y anti-optimización) */
 
-    // Cálculo preciso de R (elementos)
-    // R = (Líneas * 64 bytes) / (Stride * 8 bytes/double)
+    /*
+     * Cálculo de R: número de elementos a sumar.
+     * Cada acceso A[i*D] toca una línea de caché diferente cuando D >= CLS/sizeof(double).
+     * R = (L líneas × 64 bytes/línea) / (D × 8 bytes/double)
+     */
     long long R = (long long)L * CLS / (D * sizeof(double));
     if (R <= 0) R = 1;
 
-    // Cálculo de N (Tamaño del vector)
+    /* Índice máximo accedido: (R-1)*D; tamaño mínimo del vector */
     long long N = (R - 1) * D + 1;
 
-    // Alineación a 64 bytes (CRÍTICO para precisión en L1)
-    double *A = (double*)aligned_alloc(CLS, N * sizeof(double));
-    int *ind = (int*)malloc(R * sizeof(int));
-    double acum[REPS]; 
+    /* Reserva alineada a 64 bytes para que A[0] coincida con inicio de línea de caché */
+    double *A   = (double*)aligned_alloc(CLS, N * sizeof(double));
+    int    *ind = (int*)malloc(R * sizeof(int));
+    /* S[] almacena el resultado de cada repetición (requerido por el enunciado) */
+    double  S[REPS];
 
-    if (!A || !ind) return 1;
+    if (!A || !ind) {
+        fprintf(stderr, "Error: No se pudo reservar memoria\n");
+        return 1;
+    }
 
-    // Inicialización (Solo lo necesario para ahorrar tiempo)
-    for (long long i = 0; i < R; i++) ind[i] = i * D;
-    
+    /* Inicialización del vector de índices: ind[i] = i * D */
+    for (long long i = 0; i < R; i++) ind[i] = (int)(i * D);
+
+    /*
+     * Inicialización de A[] con valores aleatorios en [-2, -1) ∪ [1, 2).
+     * El rango [1,2) con signo aleatorio evita desbordamiento en la suma Double
+     * y garantiza que los datos leídos sean distintos de cero (calentamiento real).
+     */
     srand(time(NULL));
-    for (long long i = 0; i < R; i++) A[ind[i]] = (double)rand() / RAND_MAX;
+    for (long long i = 0; i < R; i++) {
+        double val = 1.0 + (double)rand() / RAND_MAX; /* valor en [1, 2) */
+        if (rand() % 2) val = -val;                   /* signo aleatorio */
+        A[ind[i]] = val;
+    }
 
-    // MEDICIÓN
+    /* ── SECCIÓN DE MEDICIÓN ── */
     start_counter();
-    
+
     for (int k = 0; k < REPS; k++) {
         double suma = 0.0;
-        // Bucle desenrollado implícitamente por lógica simple
+        /* Reducción de suma con acceso indirecto: A[ind[i]] */
         for (long long i = 0; i < R; i++) {
             suma += A[ind[i]];
         }
-        acum[k] = suma;
+        S[k] = suma; /* guardar resultado de cada repetición */
     }
 
     double ciclos_totales = get_counter();
-    // -----------------------------------
+    /* ── FIN DE MEDICIÓN ── */
 
+    /* Ciclos medios por acceso: total / (R accesos × REPS repeticiones) */
     double ciclos_por_acceso = ciclos_totales / ((double)R * REPS);
 
-    // Salida en formato clave=valor para fácil parsing en Python
-    // Imprimimos todo para tener trazabilidad
-    printf("D=%d\tL=%d\tR=%lld\tCiclos:%.6f\n", D, L, R, ciclos_por_acceso);
+    /* Imprimir los 10 resultados de S[] (requerido por el enunciado) */
+    printf("Resultados S[]:");
+    for (int k = 0; k < REPS; k++) printf(" %.6f", S[k]);
+    printf("\n");
 
-    // Evitar optimización del compilador usando el resultado
-    if (acum[0] == -1.0) printf("Check: %f", acum[0]);
+    /* Línea de métricas para el script de análisis Python */
+    printf("D=%d\tL=%d\tR=%lld\tCiclos:%.6f\n", D, L, R, ciclos_por_acceso);
 
     free(A);
     free(ind);

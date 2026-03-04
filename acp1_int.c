@@ -4,9 +4,9 @@
  *
  * Diferencia clave respecto a acp1.c:
  *   - El array A[] es de tipo int (4 bytes) en lugar de double (8 bytes)
- *   - Caben el DOBLE de elementos por línea de caché (64B / 4B = 16 ints vs 8 doubles)
- *   - Para el mismo L, R es el doble → se accede a más datos con el mismo número de líneas
- *   - El acumulador de suma también es int para consistencia
+ *   - Caben el DOBLE de elementos por línea de caché (64B/4B = 16 int vs 8 double)
+ *   - Para el mismo L y D, R es el doble → más datos con el mismo número de líneas
+ *   - El acumulador S[] también es int para consistencia de tipo
  *
  * Compilar: gcc acp1_int.c -o acp1_int -O0
  */
@@ -27,24 +27,24 @@ int main(int argc, char *argv[]) {
     int L = atoi(argv[2]);
 
     const int CLS = 64;   /* Tamaño de línea de caché en bytes */
-    const int REPS = 10;  /* Repeticiones internas para estabilizar medición */
+    const int REPS = 10;  /* Repeticiones de la reducción */
 
     /*
-     * Cálculo de R (número de elementos a sumar):
-     * Ahora el elemento es int (4 bytes), no double (8 bytes)
-     * R = (L * 64 bytes) / (D * 4 bytes/int)
-     * Para el mismo L y D, R es el DOBLE que en el caso double
+     * Cálculo de R con tipo int (4 bytes):
+     * R = (L × 64 bytes) / (D × 4 bytes/int)
+     * Para el mismo L y D, R es el DOBLE que en el caso double.
      */
     long long R = (long long)L * CLS / (D * sizeof(int));
     if (R <= 0) R = 1;
 
-    /* Tamaño total del vector: el último índice accedido es (R-1)*D */
+    /* Índice máximo accedido: (R-1)*D */
     long long N = (R - 1) * D + 1;
 
-    /* Reserva de memoria alineada a 64 bytes (inicio de línea de caché) */
-    int *A = (int*)aligned_alloc(CLS, N * sizeof(int));
+    /* Reserva alineada a 64 bytes (inicio de línea de caché) */
+    int *A   = (int*)aligned_alloc(CLS, N * sizeof(int));
     int *ind = (int*)malloc(R * sizeof(int));
-    int acum[REPS];  /* Acumulador de resultados (tipo int para consistencia) */
+    /* S[] almacena el resultado de cada repetición (requerido por el enunciado) */
+    int  S[REPS];
 
     if (!A || !ind) {
         fprintf(stderr, "Error: No se pudo reservar memoria\n");
@@ -52,20 +52,23 @@ int main(int argc, char *argv[]) {
     }
 
     /* Inicialización del vector de índices: ind[i] = i * D */
-    for (long long i = 0; i < R; i++) ind[i] = i * D;
+    for (long long i = 0; i < R; i++) ind[i] = (int)(i * D);
 
     /*
-     * Inicialización de datos con valores aleatorios acotados en [-2^15, 2^15)
-     * para evitar desbordamiento en la suma (int: rango [-2^31, 2^31-1])
+     * Inicialización de A[] con valores en [-32767, -1] ∪ [1, 32767].
+     * El rango acotado evita desbordamiento en la suma int
+     * (int: rango [-2^31, 2^31-1]; con R hasta ~6M y valores hasta 32767
+     *  la suma máxima ~2×10^11 desborda — usamos valores pequeños ±1..100
+     *  para estar seguros en todos los casos de L).
      */
     srand(time(NULL));
     for (long long i = 0; i < R; i++) {
-        int val = rand() % 32768;           /* Valor en [0, 32767] */
-        if (rand() % 2) val = -val;         /* Signo aleatorio */
+        int val = 1 + rand() % 100; /* valor en [1, 100] */
+        if (rand() % 2) val = -val; /* signo aleatorio */
         A[ind[i]] = val;
     }
 
-    /* MEDICIÓN */
+    /* ── SECCIÓN DE MEDICIÓN ── */
     start_counter();
 
     for (int k = 0; k < REPS; k++) {
@@ -74,19 +77,21 @@ int main(int argc, char *argv[]) {
         for (long long i = 0; i < R; i++) {
             suma += A[ind[i]];
         }
-        acum[k] = suma;
+        S[k] = suma; /* guardar resultado de cada repetición */
     }
 
     double ciclos_totales = get_counter();
+    /* ── FIN DE MEDICIÓN ── */
 
-    /* Ciclos medios por acceso sobre las 10 repeticiones × R accesos */
     double ciclos_por_acceso = ciclos_totales / ((double)R * REPS);
 
-    /* Salida en mismo formato que acp1.c para facilitar el análisis conjunto */
-    printf("D=%d\tL=%d\tR=%lld\tCiclos:%.6f\n", D, L, R, ciclos_por_acceso);
+    /* Imprimir los 10 resultados de S[] (requerido por el enunciado) */
+    printf("Resultados S[]:");
+    for (int k = 0; k < REPS; k++) printf(" %d", S[k]);
+    printf("\n");
 
-    /* Uso del resultado para evitar que el compilador elimine el bucle */
-    if (acum[0] == -999999) printf("Check: %d", acum[0]);
+    /* Línea de métricas para el script de análisis Python */
+    printf("D=%d\tL=%d\tR=%lld\tCiclos:%.6f\n", D, L, R, ciclos_por_acceso);
 
     free(A);
     free(ind);

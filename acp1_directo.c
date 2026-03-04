@@ -5,9 +5,8 @@
  * Diferencia clave respecto a acp1.c:
  *   - Se elimina el vector de índices ind[]
  *   - Los elementos se acceden directamente como A[i * D]
- *   - Efecto esperado: menor presión sobre caché (ind[] ya no ocupa líneas de caché)
- *     y patrón de acceso más predecible → el prefetcher puede actuar mejor
- *   - En la zona L1 la diferencia será mínima; en RAM puede ser notable
+ *   - Al no existir ind[], toda la caché se dedica exclusivamente a A[],
+ *     y el patrón de acceso es más predecible → el prefetcher puede actuar mejor
  *
  * Compilar: gcc acp1_directo.c -o acp1_directo -O0
  */
@@ -28,25 +27,26 @@ int main(int argc, char *argv[]) {
     int L = atoi(argv[2]);
 
     const int CLS = 64;   /* Tamaño de línea de caché en bytes */
-    const int REPS = 10;  /* Repeticiones internas para estabilizar medición */
+    const int REPS = 10;  /* Repeticiones de la reducción */
 
     /*
      * Cálculo de R: igual que en acp1.c
-     * R = (L * 64 bytes) / (D * 8 bytes/double)
+     * R = (L × 64 bytes) / (D × 8 bytes/double)
      */
     long long R = (long long)L * CLS / (D * sizeof(double));
     if (R <= 0) R = 1;
 
-    /* Tamaño total del vector: el último índice accedido es (R-1)*D */
+    /* Índice máximo accedido: (R-1)*D */
     long long N = (R - 1) * D + 1;
 
     /*
-     * Reserva de memoria alineada a 64 bytes.
-     * NOTA: no reservamos ind[] porque el acceso es DIRECTO (A[i*D])
-     * Esto libera capacidad de caché que en acp1.c era consumida por ind[]
+     * Reserva alineada a 64 bytes.
+     * No se reserva ind[] porque el acceso es DIRECTO (A[i*D]),
+     * lo que libera capacidad de caché respecto a acp1.c.
      */
     double *A = (double*)aligned_alloc(CLS, N * sizeof(double));
-    double acum[REPS];
+    /* S[] almacena el resultado de cada repetición (requerido por el enunciado) */
+    double  S[REPS];
 
     if (!A) {
         fprintf(stderr, "Error: No se pudo reservar memoria\n");
@@ -54,43 +54,40 @@ int main(int argc, char *argv[]) {
     }
 
     /*
-     * Inicialización de datos:
-     * Usamos acceso directo A[i*D] también en la inicialización para
-     * garantizar que las mismas posiciones que se leerán están inicializadas.
-     * Valores aleatorios en [1,2) con signo aleatorio para evitar overflow.
+     * Inicialización de A[] con valores en [-2,-1) ∪ [1,2) con signo aleatorio.
+     * Evita desbordamiento en la suma Double y garantiza calentamiento real de caché.
      */
     srand(time(NULL));
     for (long long i = 0; i < R; i++) {
-        double val = 1.0 + (double)rand() / RAND_MAX;  /* Valor en [1, 2) */
-        if (rand() % 2) val = -val;                     /* Signo aleatorio */
+        double val = 1.0 + (double)rand() / RAND_MAX; /* valor en [1, 2) */
+        if (rand() % 2) val = -val;                    /* signo aleatorio */
         A[i * D] = val;
     }
 
-    /* SECCIÓN CRÍTICA DE MEDICIÓN */
+    /* ── SECCIÓN DE MEDICIÓN ── */
     start_counter();
 
     for (int k = 0; k < REPS; k++) {
         double suma = 0.0;
-        /*
-         * Acceso DIRECTO: A[i * D]
-         * Sin vector de índices intermedio.
-         * El compilador (con -O0) calculará i*D en cada iteración sin optimizar.
-         */
+        /* Acceso DIRECTO: A[i * D], sin vector de índices intermedio */
         for (long long i = 0; i < R; i++) {
             suma += A[i * D];
         }
-        acum[k] = suma;
+        S[k] = suma; /* guardar resultado de cada repetición */
     }
 
     double ciclos_totales = get_counter();
+    /* ── FIN DE MEDICIÓN ── */
 
     double ciclos_por_acceso = ciclos_totales / ((double)R * REPS);
 
-    /* Mismo formato de salida que acp1.c para análisis conjunto */
-    printf("D=%d\tL=%d\tR=%lld\tCiclos:%.6f\n", D, L, R, ciclos_por_acceso);
+    /* Imprimir los 10 resultados de S[] (requerido por el enunciado) */
+    printf("Resultados S[]:");
+    for (int k = 0; k < REPS; k++) printf(" %.6f", S[k]);
+    printf("\n");
 
-    /* Uso del resultado para evitar que el compilador elimine el bucle */
-    if (acum[0] == -1.0) printf("Check: %f", acum[0]);
+    /* Línea de métricas para el script de análisis Python */
+    printf("D=%d\tL=%d\tR=%lld\tCiclos:%.6f\n", D, L, R, ciclos_por_acceso);
 
     free(A);
     return 0;
